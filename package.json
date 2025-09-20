@@ -1,5 +1,23 @@
 {
-  "name": "@dein-org/resium-entity-context-menu",
+  "description": "Flexible context menu component for Cesium/Resium applications with multiple activation modes",
+  "keywords": [
+    "cesium",
+    "resium",
+    "context-menu",
+    "react",
+    "3d",
+    "gis"
+  ],
+  "author": "Oko-Tester",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Oko-Tester/resium-entity-context-menu"
+  },
+  "bugs": {
+    "url": "https://github.com/Oko-Tester/resium-entity-context-menu/issues"
+  },
+  "name": "resium-entity-context-menu",
   "version": "0.0.1",
   "private": false,
   "main": "dist/index.cjs.js",
@@ -22,10 +40,6 @@
     "react-dom": ">=18",
     "resium": "*"
   },
-  "description": "",
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "packageManager": "pnpm@10.17.0",
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",

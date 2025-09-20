@@ -17,11 +17,11 @@ Eine flexible und benutzerfreundliche React-Komponente für Context Menus in Ces
 ## 📦 Installation
 
 ```bash
-npm install @dein-org/resium-entity-context-menu
+npm install @resium-entity-context-menu
 # oder
-pnpm add @dein-org/resium-entity-context-menu
+pnpm add @resium-entity-context-menu
 # oder
-yarn add @dein-org/resium-entity-context-menu
+yarn add @resium-entity-context-menu
 ```
 
 ## 🚀 Schnellstart
@@ -323,10 +323,10 @@ MIT License - siehe [LICENSE](LICENSE) für Details.
 
 ## 📞 Support
 
-- 🐛 [Issues](https://github.com/dein-org/resium-entity-context-menu/issues)
-- 💬 [Discussions](https://github.com/dein-org/resium-entity-context-menu/discussions)
-- 📧 Email: support@dein-org.com
+- 🐛 [Issues](https://github.com/Oko-Tester/resium-entity-context-menu/issues)
+- 💬 [Discussions](https://github.com/Oko-Tester/resium-entity-context-menu/discussions)
+- 📧 Email: okotestproductions@gmail.com
 
 ---
 
-Made with ❤️ by [Dein Org](https://github.com/dein-org)
+Made with ❤️ by [Oko-Tester](https://github.com/Oko-Tester)
