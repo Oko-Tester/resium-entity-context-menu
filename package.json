@@ -18,7 +18,7 @@
     "url": "https://github.com/Oko-Tester/resium-entity-context-menu/issues"
   },
   "name": "resium-entity-context-menu",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "private": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
