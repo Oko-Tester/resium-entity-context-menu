@@ -70,6 +70,11 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
   const hoverTimerRef = useRef<number | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
 
+  // ✅ setItemRef auf oberster Ebene definieren
+  const setItemRef = useCallback((el: HTMLButtonElement | null, idx: number) => {
+    itemsRefs.current[idx] = el;
+  }, []);
+
   // Project entity to screen coordinates
   const projectEntityToScreen = useCallback(
     (entityRef?: Entity | string, viewerRef?: Viewer | null) => {
@@ -162,6 +167,19 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
     callIdRef.current++;
   }, []);
 
+  const handleItemSelect = useCallback(
+    async (item: MenuItem) => {
+      try {
+        await onSelect?.(item, entity);
+      } catch (error) {
+        console.error('Error selecting menu item:', error);
+      } finally {
+        closeMenu();
+      }
+    },
+    [onSelect, entity, closeMenu],
+  );
+
   // Click outside to close
   useEffect(() => {
     if (!open || !closeOnOutsideClick) return;
@@ -251,7 +269,7 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
 
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, keyboardNavigation, items, focusIndex]);
+  }, [open, keyboardNavigation, items, focusIndex, handleItemSelect]);
 
   // Focus management
   useEffect(() => {
@@ -340,16 +358,6 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
     };
   }, [openOn, openMenuAt, hoverDelay, longPressDuration, disabled]);
 
-  const handleItemSelect = async (item: MenuItem) => {
-    try {
-      await onSelect?.(item, entity);
-    } catch (error) {
-      console.error('Error selecting menu item:', error);
-    } finally {
-      closeMenu();
-    }
-  };
-
   if (!open) return null;
 
   const menuContent = (
@@ -398,9 +406,6 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
 
             const isDisabled = !!item.disabled;
             const isFocused = focusIndex === idx;
-            const setItemRef = useCallback((el: HTMLButtonElement | null, idx: number) => {
-              itemsRefs.current[idx] = el;
-            }, []);
 
             return (
               <button
