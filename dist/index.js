@@ -70,6 +70,9 @@ function ResiumEntityContextMenu(props) {
   const itemsRefs = (0, import_react.useRef)([]);
   const hoverTimerRef = (0, import_react.useRef)(null);
   const longPressTimerRef = (0, import_react.useRef)(null);
+  const setItemRef = (0, import_react.useCallback)((el, idx) => {
+    itemsRefs.current[idx] = el;
+  }, []);
   const projectEntityToScreen = (0, import_react.useCallback)(
     (entityRef, viewerRef) => {
       try {
@@ -140,6 +143,18 @@ function ResiumEntityContextMenu(props) {
     setFocusIndex(-1);
     callIdRef.current++;
   }, []);
+  const handleItemSelect = (0, import_react.useCallback)(
+    async (item) => {
+      try {
+        await onSelect?.(item, entity);
+      } catch (error2) {
+        console.error("Error selecting menu item:", error2);
+      } finally {
+        closeMenu();
+      }
+    },
+    [onSelect, entity, closeMenu]
+  );
   (0, import_react.useEffect)(() => {
     if (!open || !closeOnOutsideClick) return;
     const onDocClick = (e) => {
@@ -212,7 +227,7 @@ function ResiumEntityContextMenu(props) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, keyboardNavigation, items, focusIndex]);
+  }, [open, keyboardNavigation, items, focusIndex, handleItemSelect]);
   (0, import_react.useEffect)(() => {
     if (!open || focusIndex < 0 || !items) return;
     requestAnimationFrame(() => {
@@ -282,15 +297,6 @@ function ResiumEntityContextMenu(props) {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
   }, [openOn, openMenuAt, hoverDelay, longPressDuration, disabled]);
-  const handleItemSelect = async (item) => {
-    try {
-      await onSelect?.(item, entity);
-    } catch (error2) {
-      console.error("Error selecting menu item:", error2);
-    } finally {
-      closeMenu();
-    }
-  };
   if (!open) return null;
   const menuContent = /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
     "div",
@@ -332,9 +338,6 @@ function ResiumEntityContextMenu(props) {
           }
           const isDisabled = !!item.disabled;
           const isFocused = focusIndex === idx;
-          const setItemRef = (0, import_react.useCallback)((el, idx2) => {
-            itemsRefs.current[idx2] = el;
-          }, []);
           return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "button",
             {

@@ -34,6 +34,9 @@ function ResiumEntityContextMenu(props) {
   const itemsRefs = useRef([]);
   const hoverTimerRef = useRef(null);
   const longPressTimerRef = useRef(null);
+  const setItemRef = useCallback((el, idx) => {
+    itemsRefs.current[idx] = el;
+  }, []);
   const projectEntityToScreen = useCallback(
     (entityRef, viewerRef) => {
       try {
@@ -104,6 +107,18 @@ function ResiumEntityContextMenu(props) {
     setFocusIndex(-1);
     callIdRef.current++;
   }, []);
+  const handleItemSelect = useCallback(
+    async (item) => {
+      try {
+        await onSelect?.(item, entity);
+      } catch (error2) {
+        console.error("Error selecting menu item:", error2);
+      } finally {
+        closeMenu();
+      }
+    },
+    [onSelect, entity, closeMenu]
+  );
   useEffect(() => {
     if (!open || !closeOnOutsideClick) return;
     const onDocClick = (e) => {
@@ -176,7 +191,7 @@ function ResiumEntityContextMenu(props) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, keyboardNavigation, items, focusIndex]);
+  }, [open, keyboardNavigation, items, focusIndex, handleItemSelect]);
   useEffect(() => {
     if (!open || focusIndex < 0 || !items) return;
     requestAnimationFrame(() => {
@@ -246,15 +261,6 @@ function ResiumEntityContextMenu(props) {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
   }, [openOn, openMenuAt, hoverDelay, longPressDuration, disabled]);
-  const handleItemSelect = async (item) => {
-    try {
-      await onSelect?.(item, entity);
-    } catch (error2) {
-      console.error("Error selecting menu item:", error2);
-    } finally {
-      closeMenu();
-    }
-  };
   if (!open) return null;
   const menuContent = /* @__PURE__ */ jsxs(
     "div",
@@ -296,9 +302,6 @@ function ResiumEntityContextMenu(props) {
           }
           const isDisabled = !!item.disabled;
           const isFocused = focusIndex === idx;
-          const setItemRef = useCallback((el, idx2) => {
-            itemsRefs.current[idx2] = el;
-          }, []);
           return /* @__PURE__ */ jsx(
             "button",
             {

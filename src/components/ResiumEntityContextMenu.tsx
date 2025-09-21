@@ -54,7 +54,6 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
     longPressDuration = 500,
   } = props;
 
-  // State
   const [open, setOpen] = useState(false);
   const [x, setX] = useState<number>(0);
   const [y, setY] = useState<number>(0);
@@ -63,19 +62,95 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
   const [error, setError] = useState<string | null>(null);
   const [focusIndex, setFocusIndex] = useState<number>(-1);
 
-  // Refs
   const callIdRef = useRef(0);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const itemsRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const hoverTimerRef = useRef<number | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
 
-  // ✅ setItemRef auf oberster Ebene definieren
   const setItemRef = useCallback((el: HTMLButtonElement | null, idx: number) => {
     itemsRefs.current[idx] = el;
   }, []);
 
-  // Project entity to screen coordinates
+  const getParentEntity = useCallback(() => {
+    if (entity) return entity;
+
+    try {
+      const resiumContext = (window as any).__RESIUM_CONTEXT__;
+      if (resiumContext?.entity) {
+        return resiumContext.entity;
+      }
+    } catch (e) {
+      // Ignore context errors
+    }
+
+    return null;
+  }, [entity]);
+
+  const isTargetEntity = useCallback(
+    (pickedEntity: Entity | null): boolean => {
+      if (!pickedEntity) return false;
+
+      const parentEntity = getParentEntity();
+      if (!parentEntity) return false;
+
+      if (pickedEntity === parentEntity) return true;
+
+      if (typeof parentEntity === 'string' && pickedEntity.id === parentEntity) return true;
+
+      if (typeof parentEntity === 'object' && pickedEntity.id === parentEntity.id) return true;
+
+      return false;
+    },
+    [getParentEntity],
+  );
+
+  const getViewerFromWindow = useCallback(() => {
+    if (viewer) return viewer;
+
+    try {
+      const cesiumWidget = document.querySelector('.cesium-widget');
+      if (cesiumWidget && (cesiumWidget as any).cesiumWidget) {
+        return (cesiumWidget as any).cesiumWidget.scene;
+      }
+    } catch (e) {
+      // Ignore
+    }
+
+    return null;
+  }, [viewer]);
+
+  const handleGlobalClick = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      const currentViewer = getViewerFromWindow();
+      if (!currentViewer) return;
+
+      const clientX = 'clientX' in event ? event.clientX : event.touches?.[0]?.clientX || 0;
+      const clientY = 'clientY' in event ? event.clientY : event.touches?.[0]?.clientY || 0;
+
+      try {
+        const canvas = currentViewer.canvas || document.querySelector('canvas');
+        if (!canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+
+        const picked = currentViewer.pick ? currentViewer.pick({ x, y }) : null;
+
+        const pickedEntity = picked?.id || null;
+
+        if (isTargetEntity(pickedEntity)) {
+          void openMenuAt(clientX, clientY);
+        }
+      } catch (error) {
+        console.warn('Entity picking failed:', error);
+        void openMenuAt(clientX, clientY);
+      }
+    },
+    [getViewerFromWindow, isTargetEntity],
+  );
+
   const projectEntityToScreen = useCallback(
     (entityRef?: Entity | string, viewerRef?: Viewer | null) => {
       try {
@@ -90,7 +165,6 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
         const cartesian = ent.position.getValue(time);
         if (!cartesian) return null;
 
-        // Use Cesium's SceneTransforms
         const windowCoord = (window as any).Cesium?.SceneTransforms?.wgs84ToWindowCoordinates(
           viewerRef.scene,
           cartesian,
@@ -104,7 +178,6 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
     [],
   );
 
-  // Load menu items with race condition protection
   const loadMenuItems = useCallback(
     async (entityArg?: Entity | string) => {
       const myCall = ++callIdRef.current;
@@ -113,7 +186,8 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
       setItems(null);
 
       try {
-        const res = await getMenuItems(entityArg);
+        const targetEntity = entityArg || getParentEntity();
+        const res = await getMenuItems(targetEntity);
 
         if (callIdRef.current === myCall) {
           setItems(res || []);
@@ -131,17 +205,18 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
         }
       }
     },
-    [getMenuItems],
+    [getMenuItems, getParentEntity],
   );
 
-  // Open menu at coordinates
   const openMenuAt = useCallback(
     async (clientX: number, clientY: number) => {
       if (disabled) return;
 
-      // Try to project entity position if viewer and entity are available
-      if (viewer && entity) {
-        const proj = projectEntityToScreen(entity, viewer);
+      const currentViewer = getViewerFromWindow();
+      const targetEntity = getParentEntity();
+
+      if (currentViewer && targetEntity) {
+        const proj = projectEntityToScreen(targetEntity, currentViewer);
         if (proj) {
           clientX = proj.x;
           clientY = proj.y;
@@ -152,12 +227,18 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
       setY(clientY + positionOffset.y);
       setOpen(true);
 
-      await loadMenuItems(entity);
+      await loadMenuItems(targetEntity);
     },
-    [disabled, entity, loadMenuItems, positionOffset, projectEntityToScreen, viewer],
+    [
+      disabled,
+      getViewerFromWindow,
+      getParentEntity,
+      loadMenuItems,
+      positionOffset,
+      projectEntityToScreen,
+    ],
   );
 
-  // Close menu
   const closeMenu = useCallback(() => {
     setOpen(false);
     setItems(null);
@@ -170,17 +251,17 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
   const handleItemSelect = useCallback(
     async (item: MenuItem) => {
       try {
-        await onSelect?.(item, entity);
+        const targetEntity = getParentEntity();
+        await onSelect?.(item, targetEntity);
       } catch (error) {
         console.error('Error selecting menu item:', error);
       } finally {
         closeMenu();
       }
     },
-    [onSelect, entity, closeMenu],
+    [onSelect, getParentEntity, closeMenu],
   );
 
-  // Click outside to close
   useEffect(() => {
     if (!open || !closeOnOutsideClick) return;
 
@@ -193,7 +274,6 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [open, closeOnOutsideClick, closeMenu]);
 
-  // Position clamping on resize
   useEffect(() => {
     if (!open) return;
 
@@ -220,7 +300,6 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
     return () => window.removeEventListener('resize', onResize);
   }, [open, x, y]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (!open || !keyboardNavigation || !items) return;
 
@@ -271,7 +350,6 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
     return () => document.removeEventListener('keydown', onKey);
   }, [open, keyboardNavigation, items, focusIndex, handleItemSelect]);
 
-  // Focus management
   useEffect(() => {
     if (!open || focusIndex < 0 || !items) return;
 
@@ -280,31 +358,18 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
     });
   }, [focusIndex, open, items]);
 
-  // Event handlers setup
   useEffect(() => {
     if (disabled) return;
-
-    const getCoordinates = (ev: MouseEvent | TouchEvent) => {
-      if ('clientX' in ev) {
-        return { x: ev.clientX, y: ev.clientY };
-      }
-      if (ev.touches && ev.touches.length > 0) {
-        return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
-      }
-      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    };
 
     const onContextMenu = (ev: MouseEvent) => {
       if (openOn !== 'rightClick') return;
       ev.preventDefault();
-      const coords = getCoordinates(ev);
-      void openMenuAt(coords.x, coords.y);
+      handleGlobalClick(ev);
     };
 
     const onLeftClick = (ev: MouseEvent) => {
       if (openOn !== 'leftClick' || ev.button !== 0) return;
-      const coords = getCoordinates(ev);
-      void openMenuAt(coords.x, coords.y);
+      handleGlobalClick(ev);
     };
 
     const onMouseMove = (ev: MouseEvent) => {
@@ -314,9 +379,8 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
         clearTimeout(hoverTimerRef.current);
       }
 
-      const coords = getCoordinates(ev);
       hoverTimerRef.current = window.setTimeout(() => {
-        void openMenuAt(coords.x, coords.y);
+        handleGlobalClick(ev);
       }, hoverDelay);
     };
 
@@ -327,9 +391,8 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
         clearTimeout(longPressTimerRef.current);
       }
 
-      const coords = getCoordinates(ev);
       longPressTimerRef.current = window.setTimeout(() => {
-        void openMenuAt(coords.x, coords.y);
+        handleGlobalClick(ev);
       }, longPressDuration);
     };
 
@@ -356,7 +419,7 @@ export default function ResiumEntityContextMenu(props: ResiumEntityContextMenuPr
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
-  }, [openOn, openMenuAt, hoverDelay, longPressDuration, disabled]);
+  }, [openOn, handleGlobalClick, hoverDelay, longPressDuration, disabled]);
 
   if (!open) return null;
 
