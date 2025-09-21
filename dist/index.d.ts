@@ -15,7 +15,7 @@ type PositionOffset$1 = {
     y: number;
 };
 interface ResiumEntityContextMenuProps$1 {
-    entity?: Entity | string;
+    entity?: Entity | undefined;
     getMenuItems: (entity?: Entity | string) => MenuItem$1[] | Promise<MenuItem$1[]>;
     renderMenuItem?: (item: MenuItem$1) => React.ReactNode;
     onSelect?: (item: MenuItem$1, entity?: Entity | string) => void | Promise<void>;

@@ -14,7 +14,7 @@ export type MenuItem = {
 export type PositionOffset = { x: number; y: number };
 
 export interface ResiumEntityContextMenuProps {
-  entity?: Entity | string;
+  entity?: Entity | undefined;
   getMenuItems: (entity?: Entity | string) => MenuItem[] | Promise<MenuItem[]>;
   renderMenuItem?: (item: MenuItem) => React.ReactNode;
   onSelect?: (item: MenuItem, entity?: Entity | string) => void | Promise<void>;
