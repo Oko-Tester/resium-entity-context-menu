@@ -35,10 +35,9 @@ __export(index_exports, {
 module.exports = __toCommonJS(index_exports);
 
 // src/components/ResiumEntityContextMenu.tsx
-var import_react = require("react");
+var import_react = __toESM(require("react"));
 var import_react_dom = __toESM(require("react-dom"));
 var import_jsx_runtime = require("react/jsx-runtime");
-var clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 function ResiumEntityContextMenu(props) {
   const {
     entity,
@@ -56,8 +55,17 @@ function ResiumEntityContextMenu(props) {
     zIndex = 3e3,
     viewer = null,
     hoverDelay = 250,
-    longPressDuration = 500
+    longPressDuration = 500,
+    debug = false
   } = props;
+  const log = (0, import_react.useCallback)(
+    (...args) => {
+      if (debug) {
+        console.log("\u{1F3AF} ResiumEntityContextMenu:", ...args);
+      }
+    },
+    [debug]
+  );
   const [open, setOpen] = (0, import_react.useState)(false);
   const [x, setX] = (0, import_react.useState)(0);
   const [y, setY] = (0, import_react.useState)(0);
@@ -73,34 +81,150 @@ function ResiumEntityContextMenu(props) {
   const setItemRef = (0, import_react.useCallback)((el, idx) => {
     itemsRefs.current[idx] = el;
   }, []);
-  const projectEntityToScreen = (0, import_react.useCallback)(
-    (entityRef, viewerRef) => {
+  (0, import_react.useEffect)(() => {
+    log("Component mounted with entity:", entity);
+    log("Viewer available:", !!viewer);
+    log("OpenOn mode:", openOn);
+  }, [entity, viewer, openOn, log]);
+  const getParentEntity = (0, import_react.useCallback)(() => {
+    log("Getting parent entity...");
+    if (entity) {
+      log("Entity provided via props:", entity);
+      return entity;
+    }
+    log("Searching for entity in contexts...");
+    try {
+      const contexts = [
+        window.__RESIUM_CONTEXT__,
+        window.RESIUM_CONTEXT,
+        import_react.default.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED?.ReactCurrentOwner
+      ];
+      contexts.forEach((context, i) => {
+        log(`Context ${i}:`, context);
+      });
+    } catch (e) {
+      log("Context search failed:", e);
+    }
+    log("No entity found, returning undefined");
+    return void 0;
+  }, [entity, log]);
+  const getViewerFromWindow = (0, import_react.useCallback)(() => {
+    log("Getting viewer...");
+    if (viewer) {
+      log("Viewer provided via props:", viewer);
+      return viewer;
+    }
+    try {
+      const cesiumWidget = document.querySelector(".cesium-widget");
+      log("Cesium widget found:", !!cesiumWidget);
+      if (cesiumWidget?.cesiumWidget) {
+        log("Cesium widget instance found");
+        return cesiumWidget.cesiumWidget.scene;
+      }
+      const canvas = document.querySelector("canvas.cesium-canvas");
+      log("Cesium canvas found:", !!canvas);
+      const cesium = window.Cesium;
+      log("Global Cesium available:", !!cesium);
+    } catch (e) {
+      log("Viewer search failed:", e);
+    }
+    log("No viewer found");
+    return null;
+  }, [viewer, log]);
+  const isTargetEntity = (0, import_react.useCallback)(
+    (pickedEntity) => {
+      log("Checking if picked entity matches target...");
+      log("Picked entity:", pickedEntity);
+      if (!pickedEntity) {
+        log("No entity picked");
+        return false;
+      }
+      const parentEntity = getParentEntity();
+      log("Parent entity:", parentEntity);
+      if (!parentEntity) {
+        log("No parent entity - allowing click (fallback)");
+        return true;
+      }
+      const directMatch = pickedEntity === parentEntity;
+      log("Direct reference match:", directMatch);
+      const stringMatch = typeof parentEntity === "string" && pickedEntity.id === parentEntity;
+      log("String ID match:", stringMatch);
+      const idMatch = typeof parentEntity === "object" && pickedEntity.id === parentEntity.id;
+      log("Object ID match:", idMatch);
+      const result = directMatch || stringMatch || idMatch;
+      log("Final match result:", result);
+      return result;
+    },
+    [getParentEntity, log]
+  );
+  const handleGlobalClick = (0, import_react.useCallback)(
+    (event) => {
+      log("\u{1F5B1}\uFE0F Global click detected!");
+      log("Event type:", event.type);
+      log("Event target:", event.target);
+      const currentViewer = getViewerFromWindow();
+      if (!currentViewer) {
+        log("\u274C No viewer available for picking");
+        const clientX2 = "clientX" in event ? event.clientX : event.touches?.[0]?.clientX || 0;
+        const clientY2 = "clientY" in event ? event.clientY : event.touches?.[0]?.clientY || 0;
+        log("\u{1F41B} DEBUG: Opening menu anyway at", clientX2, clientY2);
+        void openMenuAt(clientX2, clientY2);
+        return;
+      }
+      log("\u2705 Viewer found, attempting pick...");
+      const clientX = "clientX" in event ? event.clientX : event.touches?.[0]?.clientX || 0;
+      const clientY = "clientY" in event ? event.clientY : event.touches?.[0]?.clientY || 0;
+      log("Click coordinates:", { clientX, clientY });
       try {
-        if (!viewerRef || !entityRef) return null;
-        const ent = typeof entityRef === "string" ? viewerRef.entities?.getById(entityRef) : entityRef;
-        if (!ent?.position) return null;
-        const time = viewerRef.clock?.currentTime;
-        const cartesian = ent.position.getValue(time);
-        if (!cartesian) return null;
-        const windowCoord = window.Cesium?.SceneTransforms?.wgs84ToWindowCoordinates(
-          viewerRef.scene,
-          cartesian
-        );
-        return windowCoord ? { x: windowCoord.x, y: windowCoord.y } : null;
-      } catch {
-        return null;
+        const canvas = currentViewer.canvas || document.querySelector("canvas.cesium-canvas");
+        log("Canvas found:", !!canvas);
+        if (!canvas) {
+          log("\u274C No canvas found");
+          return;
+        }
+        const rect = canvas.getBoundingClientRect();
+        const x2 = clientX - rect.left;
+        const y2 = clientY - rect.top;
+        log("Canvas-relative coordinates:", { x: x2, y: y2 });
+        let picked = null;
+        if (currentViewer.pick && typeof currentViewer.pick === "function") {
+          log("Using viewer.pick...");
+          picked = currentViewer.pick({ x: x2, y: y2 });
+        } else if (currentViewer.scene?.pick) {
+          log("Using viewer.scene.pick...");
+          picked = currentViewer.scene.pick({ x: x2, y: y2 });
+        } else {
+          log("\u274C No pick method available");
+        }
+        log("Pick result:", picked);
+        const pickedEntity = picked && picked.id ? picked.id : null;
+        log("Picked entity:", pickedEntity);
+        if (isTargetEntity(pickedEntity)) {
+          log("\u2705 Target entity matches! Opening menu...");
+          void openMenuAt(clientX, clientY);
+        } else {
+          log("\u274C Target entity does not match");
+        }
+      } catch (error2) {
+        log("\u274C Pick failed:", error2);
+        log("\u{1F41B} DEBUG: Opening menu anyway due to pick failure");
+        void openMenuAt(clientX, clientY);
       }
     },
-    []
+    [getViewerFromWindow, isTargetEntity, log]
   );
   const loadMenuItems = (0, import_react.useCallback)(
     async (entityArg) => {
+      log("Loading menu items for entity:", entityArg);
       const myCall = ++callIdRef.current;
       setLoading(true);
       setError(null);
       setItems(null);
       try {
-        const res = await getMenuItems(entityArg);
+        const targetEntity = entityArg || getParentEntity();
+        log("Target entity for menu items:", targetEntity);
+        const res = await getMenuItems(targetEntity);
+        log("Menu items loaded:", res);
         if (callIdRef.current === myCall) {
           setItems(res || []);
           setLoading(false);
@@ -109,6 +233,7 @@ function ResiumEntityContextMenu(props) {
           setFocusIndex(firstIndex >= 0 ? firstIndex : -1);
         }
       } catch (e) {
+        log("\u274C Failed to load menu items:", e);
         if (callIdRef.current === myCall) {
           setItems(null);
           setLoading(false);
@@ -116,73 +241,83 @@ function ResiumEntityContextMenu(props) {
         }
       }
     },
-    [getMenuItems]
+    [getMenuItems, getParentEntity, log]
   );
   const openMenuAt = (0, import_react.useCallback)(
     async (clientX, clientY) => {
-      if (disabled) return;
-      if (viewer && entity) {
-        const proj = projectEntityToScreen(entity, viewer);
-        if (proj) {
-          clientX = proj.x;
-          clientY = proj.y;
-        }
+      log("\u{1F3AF} Opening menu at:", { clientX, clientY });
+      if (disabled) {
+        log("\u274C Menu is disabled");
+        return;
       }
       setX(clientX + positionOffset.x);
       setY(clientY + positionOffset.y);
       setOpen(true);
-      await loadMenuItems(entity);
+      log("\u2705 Menu state set to open");
+      const targetEntity = getParentEntity();
+      await loadMenuItems(targetEntity);
     },
-    [disabled, entity, loadMenuItems, positionOffset, projectEntityToScreen, viewer]
+    [disabled, positionOffset, getParentEntity, loadMenuItems, log]
   );
   const closeMenu = (0, import_react.useCallback)(() => {
+    log("Closing menu");
     setOpen(false);
     setItems(null);
     setLoading(false);
     setError(null);
     setFocusIndex(-1);
     callIdRef.current++;
-  }, []);
+  }, [log]);
   const handleItemSelect = (0, import_react.useCallback)(
     async (item) => {
+      log("Menu item selected:", item);
       try {
-        await onSelect?.(item, entity);
+        const targetEntity = getParentEntity();
+        await onSelect?.(item, targetEntity);
       } catch (error2) {
-        console.error("Error selecting menu item:", error2);
+        log("\u274C Error selecting menu item:", error2);
       } finally {
         closeMenu();
       }
     },
-    [onSelect, entity, closeMenu]
+    [onSelect, getParentEntity, closeMenu, log]
   );
+  (0, import_react.useEffect)(() => {
+    if (disabled) {
+      log("Event listeners disabled");
+      return;
+    }
+    log("\u{1F3A7} Setting up event listeners for:", openOn);
+    const onContextMenu = (ev) => {
+      if (openOn !== "rightClick") return;
+      log("\u{1F5B1}\uFE0F Right click detected");
+      ev.preventDefault();
+      handleGlobalClick(ev);
+    };
+    const onLeftClick = (ev) => {
+      if (openOn !== "leftClick" || ev.button !== 0) return;
+      log("\u{1F5B1}\uFE0F Left click detected");
+      handleGlobalClick(ev);
+    };
+    document.addEventListener("contextmenu", onContextMenu);
+    document.addEventListener("click", onLeftClick);
+    log("\u2705 Event listeners registered");
+    return () => {
+      log("\u{1F5D1}\uFE0F Cleaning up event listeners");
+      document.removeEventListener("contextmenu", onContextMenu);
+      document.removeEventListener("click", onLeftClick);
+    };
+  }, [openOn, handleGlobalClick, disabled, log]);
   (0, import_react.useEffect)(() => {
     if (!open || !closeOnOutsideClick) return;
     const onDocClick = (e) => {
       if (menuRef.current?.contains(e.target)) return;
+      log("Click outside menu - closing");
       closeMenu();
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open, closeOnOutsideClick, closeMenu]);
-  (0, import_react.useEffect)(() => {
-    if (!open) return;
-    const onResize = () => {
-      requestAnimationFrame(() => {
-        if (!menuRef.current) return;
-        const menuRect = menuRef.current.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        let newX = x;
-        let newY = y;
-        if (menuRect.right > vw) newX = clamp(vw - menuRect.width - 8, 0, vw);
-        if (menuRect.bottom > vh) newY = clamp(vh - menuRect.height - 8, 0, vh);
-        if (newX !== x) setX(newX);
-        if (newY !== y) setY(newY);
-      });
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [open, x, y]);
+  }, [open, closeOnOutsideClick, closeMenu, log]);
   (0, import_react.useEffect)(() => {
     if (!open || !keyboardNavigation || !items) return;
     const onKey = (ev) => {
@@ -227,7 +362,7 @@ function ResiumEntityContextMenu(props) {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, keyboardNavigation, items, focusIndex, handleItemSelect]);
+  }, [open, keyboardNavigation, items, focusIndex, handleItemSelect, closeMenu]);
   (0, import_react.useEffect)(() => {
     if (!open || focusIndex < 0 || !items) return;
     requestAnimationFrame(() => {
@@ -235,68 +370,11 @@ function ResiumEntityContextMenu(props) {
     });
   }, [focusIndex, open, items]);
   (0, import_react.useEffect)(() => {
-    if (disabled) return;
-    const getCoordinates = (ev) => {
-      if ("clientX" in ev) {
-        return { x: ev.clientX, y: ev.clientY };
-      }
-      if (ev.touches && ev.touches.length > 0) {
-        return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
-      }
-      return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    };
-    const onContextMenu = (ev) => {
-      if (openOn !== "rightClick") return;
-      ev.preventDefault();
-      const coords = getCoordinates(ev);
-      void openMenuAt(coords.x, coords.y);
-    };
-    const onLeftClick = (ev) => {
-      if (openOn !== "leftClick" || ev.button !== 0) return;
-      const coords = getCoordinates(ev);
-      void openMenuAt(coords.x, coords.y);
-    };
-    const onMouseMove = (ev) => {
-      if (openOn !== "hover") return;
-      if (hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current);
-      }
-      const coords = getCoordinates(ev);
-      hoverTimerRef.current = window.setTimeout(() => {
-        void openMenuAt(coords.x, coords.y);
-      }, hoverDelay);
-    };
-    const onTouchStart = (ev) => {
-      if (openOn !== "longPress") return;
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-      }
-      const coords = getCoordinates(ev);
-      longPressTimerRef.current = window.setTimeout(() => {
-        void openMenuAt(coords.x, coords.y);
-      }, longPressDuration);
-    };
-    const onTouchEnd = () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-    };
-    document.addEventListener("contextmenu", onContextMenu);
-    document.addEventListener("click", onLeftClick);
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("touchstart", onTouchStart, { passive: true });
-    document.addEventListener("touchend", onTouchEnd);
-    return () => {
-      document.removeEventListener("contextmenu", onContextMenu);
-      document.removeEventListener("click", onLeftClick);
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("touchstart", onTouchStart);
-      document.removeEventListener("touchend", onTouchEnd);
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-    };
-  }, [openOn, openMenuAt, hoverDelay, longPressDuration, disabled]);
+    log("Menu open state changed:", open);
+  }, [open, log]);
+  (0, import_react.useEffect)(() => {
+    log("Menu items changed:", items);
+  }, [items, log]);
   if (!open) return null;
   const menuContent = /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
     "div",
@@ -316,9 +394,11 @@ function ResiumEntityContextMenu(props) {
         borderRadius: 6,
         boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
         outline: "none",
+        ...debug ? { border: "3px solid red" } : {},
         ...style
       },
       children: [
+        debug && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "4px 8px", backgroundColor: "#ffe6e6", fontSize: "12px" }, children: "\u{1F41B} DEBUG MODE" }),
         loading && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "8px 12px", color: "#666" }, children: "Laden..." }),
         error && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "8px 12px", color: "#d32f2f" }, children: error }),
         !loading && !error && items && items.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "8px 12px", color: "#666" }, children: "Keine Aktionen verf\xFCgbar" }),

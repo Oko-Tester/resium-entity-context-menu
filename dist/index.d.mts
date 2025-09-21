@@ -31,6 +31,7 @@ interface ResiumEntityContextMenuProps$1 {
     viewer?: Viewer | null;
     hoverDelay?: number;
     longPressDuration?: number;
+    debug?: boolean;
 }
 declare function ResiumEntityContextMenu(props: ResiumEntityContextMenuProps$1): react_jsx_runtime.JSX.Element | null;
 
