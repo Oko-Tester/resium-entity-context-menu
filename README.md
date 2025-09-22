@@ -227,9 +227,26 @@ const menuItems = [
 - **Enter/Space** - Activate menu item
 - **Escape** - Close menu
 
-## 🎨 Styling
+## 🎨 Styling / CSS (important)
 
-The menu uses basic CSS classes. For custom styling:
+This package ships **unstyled CSS** that you must import yourself once in your application so the context menu looks correct.
+
+**Where the file is located:**  
+`resium-entity-context-menu/styles.css`
+
+### How to import
+
+Import the stylesheet **once** in your application's entry point (root). Examples:
+
+- **Create React App / Vite / Parcel** (anywhere in app entry, e.g. `src/main.tsx` or `src/index.tsx`):
+
+```ts
+// src/main.tsx
+import 'resium-entity-context-menu/styles.css';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+// ...
+```
 
 ```tsx
 <EntityContextMenu className="my-custom-menu" />
