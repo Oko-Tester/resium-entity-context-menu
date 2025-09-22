@@ -21,6 +21,7 @@
   "version": "0.0.13",
   "private": false,
   "main": "./dist/index.js",
+  "style": "./dist/index.css",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -28,10 +29,15 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./styles.css": "./dist/index.css"
   },
   "files": [
     "dist"
+  ],
+  "sideEffects": [
+    "dist/index.css",
+    "dist/*.css"
   ],
   "scripts": {
     "dev:build": "tsup --watch",
