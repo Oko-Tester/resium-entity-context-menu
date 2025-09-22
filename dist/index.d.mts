@@ -1,3 +1,5 @@
+import { PropsWithChildren } from 'react';
+
 declare const EntityContextMenu: React.FC<{
     className?: string;
 }>;
@@ -25,14 +27,13 @@ type MenuItem = {
     checked?: boolean;
 };
 type MenuFactory = (ctx: EntityContext) => MenuItem[] | Promise<MenuItem[]>;
-type EntityContextMenuProviderProps = {
-    children: React.ReactNode;
+type EntityContextMenuProviderProps = PropsWithChildren<{
     defaultFactory: MenuFactory;
     factoriesByType?: Record<string, MenuFactory>;
     onOpen?: (ctx: EntityContext) => void;
     onClose?: () => void;
     closeOnAction?: boolean;
-};
+}>;
 type ContextMenuState = {
     isVisible: boolean;
     context?: EntityContext;
