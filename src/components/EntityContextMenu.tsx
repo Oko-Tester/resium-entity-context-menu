@@ -9,7 +9,7 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
 
-  // Calculate position with viewport clamping
+  // Clamp position to viewport
   useEffect(() => {
     if (!isVisible || !context) return;
 
@@ -19,7 +19,6 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
       return;
     }
 
-    // Use RAF to ensure DOM is ready
     requestAnimationFrame(() => {
       const rect = menuEl.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
@@ -28,12 +27,10 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
       let x = context.position.x;
       let y = context.position.y;
 
-      // Flip horizontally if needed
       if (x + rect.width > viewportWidth - 10) {
         x = Math.max(10, x - rect.width);
       }
 
-      // Flip vertically if needed
       if (y + rect.height > viewportHeight - 10) {
         y = Math.max(10, y - rect.height);
       }
@@ -42,7 +39,7 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
     });
   }, [isVisible, context, menuItems]);
 
-  // Handle click outside
+  // Close on outside click / Escape
   useEffect(() => {
     if (!isVisible) return;
 
@@ -67,12 +64,29 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
     };
   }, [isVisible, hideMenu]);
 
-  // Focus management
+  // Focus menu container when opened
   useEffect(() => {
     if (isVisible && menuRef.current) {
       menuRef.current.focus();
     }
   }, [isVisible]);
+
+  // Reset focus when menuItems change
+  useEffect(() => {
+    setFocusedIndex(0);
+    setOpenSubmenu(null);
+  }, [menuItems]);
+
+  // Helper: safe enabled check (supports boolean | (ctx)=>boolean | undefined)
+  const isItemEnabled = useCallback(
+    (item: MenuItem) => {
+      if (!item.enabled) return true; // undefined or falsy function typed as undefined
+      if (typeof item.enabled === 'boolean') return item.enabled;
+      // function
+      return !!context && item.enabled(context);
+    },
+    [context],
+  );
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -82,6 +96,8 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
       const visibleItems = menuItems.filter(
         (item) => item.type !== 'separator' && (!item.visible || item.visible(context!)),
       );
+
+      if (visibleItems.length === 0) return;
 
       switch (e.key) {
         case 'ArrowDown':
@@ -95,38 +111,43 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
         case 'Enter':
         case ' ':
           e.preventDefault();
-          const focusedItem = visibleItems[focusedIndex];
-          if (
-            focusedItem &&
-            focusedItem.enabled &&
-            focusedItem.enabled(context!) !== false &&
-            (!focusedItem.enabled || focusedItem.enabled(context!))
-          ) {
+          {
+            const focusedItem = visibleItems[focusedIndex];
+            if (!focusedItem) break;
+
+            const enabled = isItemEnabled(focusedItem);
+            if (!enabled) break;
+
             if (focusedItem.type === 'submenu' && focusedItem.items) {
               setOpenSubmenu(focusedItem.id);
             } else if (focusedItem.onClick) {
-              focusedItem.onClick(context!);
-              hideMenu();
+              const res = focusedItem.onClick(context!);
+              if (res instanceof Promise) {
+                res.finally(() => hideMenu());
+              } else {
+                hideMenu();
+              }
             }
           }
           break;
-        case 'ArrowRight':
+        case 'ArrowRight': {
           const item = visibleItems[focusedIndex];
           if (item?.type === 'submenu' && item.items) {
             setOpenSubmenu(item.id);
           }
           break;
+        }
         case 'ArrowLeft':
           setOpenSubmenu(null);
           break;
       }
     },
-    [menuItems, context, focusedIndex, hideMenu],
+    [menuItems, context, focusedIndex, hideMenu, isItemEnabled],
   );
 
   if (!isVisible) return null;
 
-  const renderMenuItem = (item: MenuItem, index: number): React.ReactNode => {
+  const renderMenuItem = (item: MenuItem, index: number, parentId?: string): React.ReactNode => {
     if (!context) return null;
 
     // Check visibility
@@ -135,15 +156,19 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
     }
 
     // Check if enabled
-    const isEnabled = item.enabled === undefined || item.enabled(context);
+    const isEnabled = isItemEnabled(item);
     const isFocused = index === focusedIndex;
 
     if (item.type === 'separator') {
-      return <div key={item.id} className="h-px bg-gray-200 my-1" />;
+      return <div key={item.id ?? `sep-${index}`} className="ecm-separator" />;
     }
 
     if (item.type === 'custom' && item.render) {
-      return <div key={item.id}>{item.render(context)}</div>;
+      return (
+        <div key={item.id ?? `custom-${index}`} className="ecm-custom">
+          {item.render(context)}
+        </div>
+      );
     }
 
     const handleClick = async () => {
@@ -152,34 +177,45 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
       if (item.type === 'submenu' && item.items) {
         setOpenSubmenu(openSubmenu === item.id ? null : item.id);
       } else if (item.onClick) {
-        await item.onClick(context);
-        hideMenu();
+        try {
+          const res = item.onClick(context);
+          if (res instanceof Promise) await res;
+        } finally {
+          hideMenu();
+        }
       }
     };
 
+    const itemKey = parentId ? `${parentId}__${item.id ?? index}` : `${item.id ?? index}`;
+
     return (
       <div
-        key={item.id}
+        key={itemKey}
         role="menuitem"
         tabIndex={isFocused ? 0 : -1}
-        className={`
-          px-3 py-2 cursor-pointer select-none relative
-          ${isEnabled ? 'hover:bg-blue-50' : 'opacity-50 cursor-not-allowed'}
-          ${isFocused ? 'bg-blue-100' : ''}
-          ${item.type === 'toggle' && item.checked ? 'pl-8' : ''}
-        `}
+        className={[
+          'ecm-item',
+          isEnabled ? 'ecm-item--enabled' : 'ecm-item--disabled',
+          isFocused ? 'ecm-item--focused' : '',
+          item.type === 'toggle' ? 'ecm-item--toggle' : '',
+          item.type === 'submenu' ? 'ecm-item--submenu' : '',
+        ]
+          .join(' ')
+          .trim()}
         onClick={handleClick}
         onMouseEnter={() => setFocusedIndex(index)}
       >
-        {item.type === 'toggle' && item.checked && <span className="absolute left-2">✓</span>}
-        <span className="flex items-center justify-between">
-          {item.label}
-          {item.type === 'submenu' && <span className="ml-4">▶</span>}
-        </span>
+        {item.type === 'toggle' && (item as any).checked && (
+          <span className="ecm-checkmark">✓</span>
+        )}
+
+        <span className="ecm-item__label">{item.label}</span>
+
+        {item.type === 'submenu' && <span className="ecm-item__submenu-indicator">▶</span>}
 
         {item.type === 'submenu' && openSubmenu === item.id && item.items && (
-          <div className="absolute left-full top-0 ml-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[150px] z-50">
-            {item.items.map((subItem, subIndex) => renderMenuItem(subItem, subIndex))}
+          <div className="ecm-submenu">
+            {item.items.map((subItem, subIndex) => renderMenuItem(subItem, subIndex, item.id))}
           </div>
         )}
       </div>
@@ -191,11 +227,7 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
       ref={menuRef}
       role="menu"
       tabIndex={-1}
-      className={`
-        fixed bg-white border border-gray-200 rounded-lg shadow-lg
-        min-w-[200px] max-w-[300px] z-[9999] outline-none
-        ${className}
-      `}
+      className={`ecm-menu ${className}`}
       style={{
         left: `${menuPosition.x}px`,
         top: `${menuPosition.y}px`,
@@ -203,11 +235,13 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
       onKeyDown={handleKeyDown}
     >
       {isLoading ? (
-        <div className="px-3 py-4 text-center text-gray-500">Loading menu...</div>
+        <div className="ecm-loading">Loading menu...</div>
       ) : menuItems && menuItems.length > 0 ? (
-        <div className="py-1">{menuItems.map((item, index) => renderMenuItem(item, index))}</div>
+        <div className="ecm-list">
+          {menuItems.map((item, index) => renderMenuItem(item, index))}
+        </div>
       ) : (
-        <div className="px-3 py-4 text-center text-gray-500">No actions available</div>
+        <div className="ecm-empty">No actions available</div>
       )}
     </div>
   );
