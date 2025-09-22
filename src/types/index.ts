@@ -21,7 +21,7 @@ export type MenuItem = {
 
 export type MenuFactory = (ctx: EntityContext) => MenuItem[] | Promise<MenuItem[]>;
 
-export type ResiumEntityContextMenuProviderProps = {
+export type EntityContextMenuProviderProps = {
   children: React.ReactNode;
   defaultFactory: MenuFactory;
   factoriesByType?: Record<string, MenuFactory>;

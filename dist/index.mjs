@@ -1,421 +1,250 @@
-// src/components/ResiumEntityContextMenu.tsx
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import ReactDOM from "react-dom";
-import { jsx, jsxs } from "react/jsx-runtime";
-function ResiumEntityContextMenu(props) {
-  const {
-    entity,
-    getMenuItems,
-    renderMenuItem,
-    onSelect,
-    openOn = "rightClick",
-    positionOffset = { x: 4, y: 4 },
-    portal = true,
-    closeOnOutsideClick = true,
-    keyboardNavigation = true,
-    className = "",
-    style = {},
-    disabled = false,
-    zIndex = 3e3,
-    viewer = null,
-    hoverDelay = 250,
-    longPressDuration = 500,
-    debug = false
-  } = props;
-  const log = useCallback(
-    (...args) => {
-      if (debug) {
-        console.log("\u{1F3AF} ResiumEntityContextMenu:", ...args);
+// src/components/EntityContextMenu.tsx
+import { useRef, useState as useState2, useEffect, useCallback as useCallback2 } from "react";
+
+// src/hooks/useEntityContextMenu.tsx
+import { useContext } from "react";
+
+// src/contexts/ContextMenuProvider.tsx
+import { createContext, useState, useCallback } from "react";
+import { jsx } from "react/jsx-runtime";
+var ContextMenuContext = createContext(null);
+var EntityContextMenuProvider = ({
+  children,
+  defaultFactory,
+  factoriesByType = {},
+  onOpen,
+  onClose,
+  closeOnAction = true
+}) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [context, setContext] = useState();
+  const [menuItems, setMenuItems] = useState();
+  const [isLoading, setIsLoading] = useState(false);
+  const resolveFactory = useCallback(
+    (ctx) => {
+      if (ctx.entityData?.menuFactory && typeof ctx.entityData.menuFactory === "function") {
+        return ctx.entityData.menuFactory;
       }
+      if (ctx.entityType && factoriesByType[ctx.entityType]) {
+        return factoriesByType[ctx.entityType];
+      }
+      return defaultFactory;
     },
-    [debug]
+    [defaultFactory, factoriesByType]
   );
-  const [open, setOpen] = useState(false);
-  const [x, setX] = useState(0);
-  const [y, setY] = useState(0);
-  const [items, setItems] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [focusIndex, setFocusIndex] = useState(-1);
-  const callIdRef = useRef(0);
-  const menuRef = useRef(null);
-  const itemsRefs = useRef([]);
-  const hoverTimerRef = useRef(null);
-  const longPressTimerRef = useRef(null);
-  const setItemRef = useCallback((el, idx) => {
-    itemsRefs.current[idx] = el;
-  }, []);
-  useEffect(() => {
-    log("Component mounted with entity:", entity);
-    log("Viewer available:", !!viewer);
-    log("OpenOn mode:", openOn);
-  }, [entity, viewer, openOn, log]);
-  const getParentEntity = useCallback(() => {
-    log("Getting parent entity...");
-    if (entity) {
-      log("Entity provided via props:", entity);
-      return entity;
-    }
-    log("Searching for entity in contexts...");
-    try {
-      const contexts = [
-        window.__RESIUM_CONTEXT__,
-        window.RESIUM_CONTEXT,
-        React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED?.ReactCurrentOwner
-      ];
-      contexts.forEach((context, i) => {
-        log(`Context ${i}:`, context);
-      });
-    } catch (e) {
-      log("Context search failed:", e);
-    }
-    log("No entity found, returning undefined");
-    return void 0;
-  }, [entity, log]);
-  const getViewerFromWindow = useCallback(() => {
-    log("Getting viewer...");
-    if (viewer) {
-      log("Viewer provided via props:", viewer);
-      return viewer;
-    }
-    try {
-      const cesiumWidget = document.querySelector(".cesium-widget");
-      log("Cesium widget found:", !!cesiumWidget);
-      if (cesiumWidget?.cesiumWidget) {
-        log("Cesium widget instance found");
-        return cesiumWidget.cesiumWidget.scene;
-      }
-      const canvas = document.querySelector("canvas.cesium-canvas");
-      log("Cesium canvas found:", !!canvas);
-      const cesium = window.Cesium;
-      log("Global Cesium available:", !!cesium);
-    } catch (e) {
-      log("Viewer search failed:", e);
-    }
-    log("No viewer found");
-    return null;
-  }, [viewer, log]);
-  const isTargetEntity = useCallback(
-    (pickedEntity) => {
-      log("Checking if picked entity matches target...");
-      log("Picked entity:", pickedEntity);
-      if (!pickedEntity) {
-        log("No entity picked");
-        return false;
-      }
-      const parentEntity = getParentEntity();
-      log("Parent entity:", parentEntity);
-      if (!parentEntity) {
-        log("No parent entity - allowing click (fallback)");
-        return true;
-      }
-      const directMatch = pickedEntity === parentEntity;
-      log("Direct reference match:", directMatch);
-      const stringMatch = typeof parentEntity === "string" && pickedEntity.id === parentEntity;
-      log("String ID match:", stringMatch);
-      const idMatch = typeof parentEntity === "object" && pickedEntity.id === parentEntity.id;
-      log("Object ID match:", idMatch);
-      const result = directMatch || stringMatch || idMatch;
-      log("Final match result:", result);
-      return result;
-    },
-    [getParentEntity, log]
-  );
-  const handleGlobalClick = useCallback(
-    (event) => {
-      log("\u{1F5B1}\uFE0F Global click detected!");
-      log("Event type:", event.type);
-      log("Event target:", event.target);
-      const currentViewer = getViewerFromWindow();
-      if (!currentViewer) {
-        log("\u274C No viewer available for picking");
-        const clientX2 = "clientX" in event ? event.clientX : event.touches?.[0]?.clientX || 0;
-        const clientY2 = "clientY" in event ? event.clientY : event.touches?.[0]?.clientY || 0;
-        log("\u{1F41B} DEBUG: Opening menu anyway at", clientX2, clientY2);
-        void openMenuAt(clientX2, clientY2);
-        return;
-      }
-      log("\u2705 Viewer found, attempting pick...");
-      const clientX = "clientX" in event ? event.clientX : event.touches?.[0]?.clientX || 0;
-      const clientY = "clientY" in event ? event.clientY : event.touches?.[0]?.clientY || 0;
-      log("Click coordinates:", { clientX, clientY });
+  const showMenu = useCallback(
+    async (ctx) => {
+      setContext(ctx);
+      setIsVisible(true);
+      setIsLoading(true);
+      setMenuItems(void 0);
+      onOpen?.(ctx);
       try {
-        const canvas = currentViewer.canvas || document.querySelector("canvas.cesium-canvas");
-        log("Canvas found:", !!canvas);
-        if (!canvas) {
-          log("\u274C No canvas found");
-          return;
-        }
-        const rect = canvas.getBoundingClientRect();
-        const x2 = clientX - rect.left;
-        const y2 = clientY - rect.top;
-        log("Canvas-relative coordinates:", { x: x2, y: y2 });
-        let picked = null;
-        if (currentViewer.pick && typeof currentViewer.pick === "function") {
-          log("Using viewer.pick...");
-          picked = currentViewer.pick({ x: x2, y: y2 });
-        } else if (currentViewer.scene?.pick) {
-          log("Using viewer.scene.pick...");
-          picked = currentViewer.scene.pick({ x: x2, y: y2 });
-        } else {
-          log("\u274C No pick method available");
-        }
-        log("Pick result:", picked);
-        const pickedEntity = picked && picked.id ? picked.id : null;
-        log("Picked entity:", pickedEntity);
-        if (isTargetEntity(pickedEntity)) {
-          log("\u2705 Target entity matches! Opening menu...");
-          void openMenuAt(clientX, clientY);
-        } else {
-          log("\u274C Target entity does not match");
-        }
-      } catch (error2) {
-        log("\u274C Pick failed:", error2);
-        log("\u{1F41B} DEBUG: Opening menu anyway due to pick failure");
-        void openMenuAt(clientX, clientY);
-      }
-    },
-    [getViewerFromWindow, isTargetEntity, log]
-  );
-  const loadMenuItems = useCallback(
-    async (entityArg) => {
-      log("Loading menu items for entity:", entityArg);
-      const myCall = ++callIdRef.current;
-      setLoading(true);
-      setError(null);
-      setItems(null);
-      try {
-        const targetEntity = entityArg || getParentEntity();
-        log("Target entity for menu items:", targetEntity);
-        const res = await getMenuItems(targetEntity);
-        log("Menu items loaded:", res);
-        if (callIdRef.current === myCall) {
-          setItems(res || []);
-          setLoading(false);
-          setError(null);
-          const firstIndex = (res || []).findIndex((it) => !it.disabled && !it.separator);
-          setFocusIndex(firstIndex >= 0 ? firstIndex : -1);
-        }
-      } catch (e) {
-        log("\u274C Failed to load menu items:", e);
-        if (callIdRef.current === myCall) {
-          setItems(null);
-          setLoading(false);
-          setError("Fehler beim Laden der Men\xFCeintr\xE4ge");
-        }
-      }
-    },
-    [getMenuItems, getParentEntity, log]
-  );
-  const openMenuAt = useCallback(
-    async (clientX, clientY) => {
-      log("\u{1F3AF} Opening menu at:", { clientX, clientY });
-      if (disabled) {
-        log("\u274C Menu is disabled");
-        return;
-      }
-      setX(clientX + positionOffset.x);
-      setY(clientY + positionOffset.y);
-      setOpen(true);
-      log("\u2705 Menu state set to open");
-      const targetEntity = getParentEntity();
-      await loadMenuItems(targetEntity);
-    },
-    [disabled, positionOffset, getParentEntity, loadMenuItems, log]
-  );
-  const closeMenu = useCallback(() => {
-    log("Closing menu");
-    setOpen(false);
-    setItems(null);
-    setLoading(false);
-    setError(null);
-    setFocusIndex(-1);
-    callIdRef.current++;
-  }, [log]);
-  const handleItemSelect = useCallback(
-    async (item) => {
-      log("Menu item selected:", item);
-      try {
-        const targetEntity = getParentEntity();
-        await onSelect?.(item, targetEntity);
-      } catch (error2) {
-        log("\u274C Error selecting menu item:", error2);
+        const factory = resolveFactory(ctx);
+        const items = await factory(ctx);
+        setMenuItems(items);
+      } catch (error) {
+        console.error("Failed to resolve menu items:", error);
+        setMenuItems([]);
       } finally {
-        closeMenu();
+        setIsLoading(false);
       }
     },
-    [onSelect, getParentEntity, closeMenu, log]
+    [resolveFactory, onOpen]
   );
+  const hideMenu = useCallback(() => {
+    setIsVisible(false);
+    setContext(void 0);
+    setMenuItems(void 0);
+    setIsLoading(false);
+    onClose?.();
+  }, [onClose]);
+  const value = {
+    isVisible,
+    context,
+    menuItems,
+    isLoading,
+    showMenu,
+    hideMenu
+  };
+  return /* @__PURE__ */ jsx(ContextMenuContext.Provider, { value, children });
+};
+
+// src/hooks/useEntityContextMenu.tsx
+function useEntityContextMenu() {
+  const context = useContext(ContextMenuContext);
+  if (!context) {
+    throw new Error("useEntityContextMenu must be used within EntityContextMenuProvider");
+  }
+  return context;
+}
+
+// src/components/EntityContextMenu.tsx
+import { jsx as jsx2, jsxs } from "react/jsx-runtime";
+var EntityContextMenu = ({ className = "" }) => {
+  const { isVisible, context, menuItems, isLoading, hideMenu } = useEntityContextMenu();
+  const menuRef = useRef(null);
+  const [focusedIndex, setFocusedIndex] = useState2(0);
+  const [openSubmenu, setOpenSubmenu] = useState2(null);
+  const [menuPosition, setMenuPosition] = useState2({ x: 0, y: 0 });
   useEffect(() => {
-    if (disabled) {
-      log("Event listeners disabled");
+    if (!isVisible || !context) return;
+    const menuEl = menuRef.current;
+    if (!menuEl) {
+      setMenuPosition({ x: context.position.x, y: context.position.y });
       return;
     }
-    log("\u{1F3A7} Setting up event listeners for:", openOn);
-    const onContextMenu = (ev) => {
-      if (openOn !== "rightClick") return;
-      log("\u{1F5B1}\uFE0F Right click detected");
-      ev.preventDefault();
-      handleGlobalClick(ev);
-    };
-    const onLeftClick = (ev) => {
-      if (openOn !== "leftClick" || ev.button !== 0) return;
-      log("\u{1F5B1}\uFE0F Left click detected");
-      handleGlobalClick(ev);
-    };
-    document.addEventListener("contextmenu", onContextMenu);
-    document.addEventListener("click", onLeftClick);
-    log("\u2705 Event listeners registered");
-    return () => {
-      log("\u{1F5D1}\uFE0F Cleaning up event listeners");
-      document.removeEventListener("contextmenu", onContextMenu);
-      document.removeEventListener("click", onLeftClick);
-    };
-  }, [openOn, handleGlobalClick, disabled, log]);
-  useEffect(() => {
-    if (!open || !closeOnOutsideClick) return;
-    const onDocClick = (e) => {
-      if (menuRef.current?.contains(e.target)) return;
-      log("Click outside menu - closing");
-      closeMenu();
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open, closeOnOutsideClick, closeMenu, log]);
-  useEffect(() => {
-    if (!open || !keyboardNavigation || !items) return;
-    const onKey = (ev) => {
-      if (ev.key === "Escape") {
-        ev.preventDefault();
-        closeMenu();
-        return;
-      }
-      const visibleItems = items.filter((it) => !it.disabled && !it.separator);
-      if (visibleItems.length === 0) return;
-      if (ev.key === "ArrowDown") {
-        ev.preventDefault();
-        let next = focusIndex;
-        for (let i = 1; i <= items.length; i++) {
-          const idx = (focusIndex + i) % items.length;
-          const it = items[idx];
-          if (!it.disabled && !it.separator) {
-            next = idx;
-            break;
-          }
-        }
-        setFocusIndex(next);
-      } else if (ev.key === "ArrowUp") {
-        ev.preventDefault();
-        let prev = focusIndex;
-        for (let i = 1; i <= items.length; i++) {
-          const idx = (focusIndex - i + items.length) % items.length;
-          const it = items[idx];
-          if (!it.disabled && !it.separator) {
-            prev = idx;
-            break;
-          }
-        }
-        setFocusIndex(prev);
-      } else if (ev.key === "Enter") {
-        ev.preventDefault();
-        const it = items[focusIndex];
-        if (it && !it.disabled && !it.separator) {
-          handleItemSelect(it);
-        }
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, keyboardNavigation, items, focusIndex, handleItemSelect, closeMenu]);
-  useEffect(() => {
-    if (!open || focusIndex < 0 || !items) return;
     requestAnimationFrame(() => {
-      itemsRefs.current[focusIndex]?.focus();
+      const rect = menuEl.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      let x = context.position.x;
+      let y = context.position.y;
+      if (x + rect.width > viewportWidth - 10) {
+        x = Math.max(10, x - rect.width);
+      }
+      if (y + rect.height > viewportHeight - 10) {
+        y = Math.max(10, y - rect.height);
+      }
+      setMenuPosition({ x, y });
     });
-  }, [focusIndex, open, items]);
+  }, [isVisible, context, menuItems]);
   useEffect(() => {
-    log("Menu open state changed:", open);
-  }, [open, log]);
+    if (!isVisible) return;
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        hideMenu();
+      }
+    };
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        hideMenu();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isVisible, hideMenu]);
   useEffect(() => {
-    log("Menu items changed:", items);
-  }, [items, log]);
-  if (!open) return null;
-  const menuContent = /* @__PURE__ */ jsxs(
+    if (isVisible && menuRef.current) {
+      menuRef.current.focus();
+    }
+  }, [isVisible]);
+  const handleKeyDown = useCallback2(
+    (e) => {
+      if (!menuItems || menuItems.length === 0) return;
+      const visibleItems = menuItems.filter(
+        (item) => item.type !== "separator" && (!item.visible || item.visible(context))
+      );
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setFocusedIndex((prev) => (prev + 1) % visibleItems.length);
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setFocusedIndex((prev) => (prev - 1 + visibleItems.length) % visibleItems.length);
+          break;
+        case "Enter":
+        case " ":
+          e.preventDefault();
+          const focusedItem = visibleItems[focusedIndex];
+          if (focusedItem && focusedItem.enabled && focusedItem.enabled(context) !== false && (!focusedItem.enabled || focusedItem.enabled(context))) {
+            if (focusedItem.type === "submenu" && focusedItem.items) {
+              setOpenSubmenu(focusedItem.id);
+            } else if (focusedItem.onClick) {
+              focusedItem.onClick(context);
+              hideMenu();
+            }
+          }
+          break;
+        case "ArrowRight":
+          const item = visibleItems[focusedIndex];
+          if (item?.type === "submenu" && item.items) {
+            setOpenSubmenu(item.id);
+          }
+          break;
+        case "ArrowLeft":
+          setOpenSubmenu(null);
+          break;
+      }
+    },
+    [menuItems, context, focusedIndex, hideMenu]
+  );
+  if (!isVisible) return null;
+  const renderMenuItem = (item, index) => {
+    if (!context) return null;
+    if (item.visible && !item.visible(context)) {
+      return null;
+    }
+    const isEnabled = item.enabled === void 0 || item.enabled(context);
+    const isFocused = index === focusedIndex;
+    if (item.type === "separator") {
+      return /* @__PURE__ */ jsx2("div", { className: "h-px bg-gray-200 my-1" }, item.id);
+    }
+    if (item.type === "custom" && item.render) {
+      return /* @__PURE__ */ jsx2("div", { children: item.render(context) }, item.id);
+    }
+    const handleClick = async () => {
+      if (!isEnabled) return;
+      if (item.type === "submenu" && item.items) {
+        setOpenSubmenu(openSubmenu === item.id ? null : item.id);
+      } else if (item.onClick) {
+        await item.onClick(context);
+        hideMenu();
+      }
+    };
+    return /* @__PURE__ */ jsxs(
+      "div",
+      {
+        role: "menuitem",
+        tabIndex: isFocused ? 0 : -1,
+        className: `
+          px-3 py-2 cursor-pointer select-none relative
+          ${isEnabled ? "hover:bg-blue-50" : "opacity-50 cursor-not-allowed"}
+          ${isFocused ? "bg-blue-100" : ""}
+          ${item.type === "toggle" && item.checked ? "pl-8" : ""}
+        `,
+        onClick: handleClick,
+        onMouseEnter: () => setFocusedIndex(index),
+        children: [
+          item.type === "toggle" && item.checked && /* @__PURE__ */ jsx2("span", { className: "absolute left-2", children: "\u2713" }),
+          /* @__PURE__ */ jsxs("span", { className: "flex items-center justify-between", children: [
+            item.label,
+            item.type === "submenu" && /* @__PURE__ */ jsx2("span", { className: "ml-4", children: "\u25B6" })
+          ] }),
+          item.type === "submenu" && openSubmenu === item.id && item.items && /* @__PURE__ */ jsx2("div", { className: "absolute left-full top-0 ml-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[150px] z-50", children: item.items.map((subItem, subIndex) => renderMenuItem(subItem, subIndex)) })
+        ]
+      },
+      item.id
+    );
+  };
+  return /* @__PURE__ */ jsx2(
     "div",
     {
       ref: menuRef,
       role: "menu",
-      className: `resium-entity-contextmenu ${className}`,
+      tabIndex: -1,
+      className: `
+        fixed bg-white border border-gray-200 rounded-lg shadow-lg
+        min-w-[200px] max-w-[300px] z-[9999] outline-none
+        ${className}
+      `,
       style: {
-        position: "fixed",
-        left: x,
-        top: y,
-        zIndex,
-        minWidth: 160,
-        padding: 8,
-        backgroundColor: "white",
-        border: "1px solid #ddd",
-        borderRadius: 6,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        outline: "none",
-        ...debug ? { border: "3px solid red" } : {},
-        ...style
+        left: `${menuPosition.x}px`,
+        top: `${menuPosition.y}px`
       },
-      children: [
-        debug && /* @__PURE__ */ jsx("div", { style: { padding: "4px 8px", backgroundColor: "#ffe6e6", fontSize: "12px" }, children: "\u{1F41B} DEBUG MODE" }),
-        loading && /* @__PURE__ */ jsx("div", { style: { padding: "8px 12px", color: "#666" }, children: "Laden..." }),
-        error && /* @__PURE__ */ jsx("div", { style: { padding: "8px 12px", color: "#d32f2f" }, children: error }),
-        !loading && !error && items && items.length === 0 && /* @__PURE__ */ jsx("div", { style: { padding: "8px 12px", color: "#666" }, children: "Keine Aktionen verf\xFCgbar" }),
-        !loading && !error && items && items.length > 0 && /* @__PURE__ */ jsx("div", { children: items.map((item, idx) => {
-          if (item.separator) {
-            return /* @__PURE__ */ jsx(
-              "div",
-              {
-                style: {
-                  height: 1,
-                  backgroundColor: "#eee",
-                  margin: "4px 0"
-                }
-              },
-              `separator-${idx}`
-            );
-          }
-          const isDisabled = !!item.disabled;
-          const isFocused = focusIndex === idx;
-          return /* @__PURE__ */ jsx(
-            "button",
-            {
-              ref: (el) => setItemRef(el, idx),
-              role: "menuitem",
-              disabled: isDisabled,
-              tabIndex: -1,
-              onClick: () => !isDisabled && handleItemSelect(item),
-              onMouseEnter: () => setFocusIndex(idx),
-              style: {
-                display: "block",
-                width: "100%",
-                padding: "8px 12px",
-                border: "none",
-                backgroundColor: isFocused ? "#f5f5f5" : "transparent",
-                textAlign: "left",
-                cursor: isDisabled ? "not-allowed" : "pointer",
-                borderRadius: 4,
-                opacity: isDisabled ? 0.5 : 1
-              },
-              children: renderMenuItem ? renderMenuItem(item) : /* @__PURE__ */ jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
-                item.icon && /* @__PURE__ */ jsx("span", { children: item.icon }),
-                /* @__PURE__ */ jsx("span", { children: item.label })
-              ] })
-            },
-            item.id
-          );
-        }) })
-      ]
+      onKeyDown: handleKeyDown,
+      children: isLoading ? /* @__PURE__ */ jsx2("div", { className: "px-3 py-4 text-center text-gray-500", children: "Loading menu..." }) : menuItems && menuItems.length > 0 ? /* @__PURE__ */ jsx2("div", { className: "py-1", children: menuItems.map((item, index) => renderMenuItem(item, index)) }) : /* @__PURE__ */ jsx2("div", { className: "px-3 py-4 text-center text-gray-500", children: "No actions available" })
     }
   );
-  return portal ? ReactDOM.createPortal(menuContent, document.body) : menuContent;
-}
+};
 export {
-  ResiumEntityContextMenu as default
+  EntityContextMenu,
+  EntityContextMenuProvider,
+  useEntityContextMenu
 };
 //# sourceMappingURL=index.mjs.map

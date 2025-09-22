@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useEntityContextMenu } from '../hooks/useEntityContextMenu';
+import { MenuItem } from '../types/index';
 
-export const ResiumEntityContextMenu: React.FC<{ className?: string }> = ({ className = '' }) => {
+export const EntityContextMenu: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { isVisible, context, menuItems, isLoading, hideMenu } = useEntityContextMenu();
   const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -97,7 +98,8 @@ export const ResiumEntityContextMenu: React.FC<{ className?: string }> = ({ clas
           const focusedItem = visibleItems[focusedIndex];
           if (
             focusedItem &&
-            focusedItem.enabled !== false &&
+            focusedItem.enabled &&
+            focusedItem.enabled(context!) !== false &&
             (!focusedItem.enabled || focusedItem.enabled(context!))
           ) {
             if (focusedItem.type === 'submenu' && focusedItem.items) {

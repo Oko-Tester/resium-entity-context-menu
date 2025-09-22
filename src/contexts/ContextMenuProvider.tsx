@@ -4,12 +4,12 @@ import {
   EntityContext,
   MenuFactory,
   MenuItem,
-  ResiumEntityContextMenuProviderProps,
-} from '../types';
+  EntityContextMenuProviderProps,
+} from '../types/index';
 
 export const ContextMenuContext = createContext<ContextMenuState | null>(null);
 
-export const ResiumEntityContextMenuProvider: React.FC<ResiumEntityContextMenuProviderProps> = ({
+export const EntityContextMenuProvider: React.FC<EntityContextMenuProviderProps> = ({
   children,
   defaultFactory,
   factoriesByType = {},

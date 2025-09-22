@@ -9,7 +9,7 @@ module.exports = {
   },
   extends: [
     'eslint:recommended',
-    '@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/recommended',
     'plugin:react/recommended',
     'plugin:react-hooks/recommended',
     'prettier',
@@ -30,6 +30,7 @@ module.exports = {
     // React Rules
     'react/react-in-jsx-scope': 'off', // Not needed with new JSX transform
     'react/prop-types': 'off', // We use TypeScript for prop validation
+    'react/display-name': 'off', // Allow anonymous components
 
     // TypeScript Rules
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
