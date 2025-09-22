@@ -1,332 +1,327 @@
-# 🌍 Resium Entity Context Menu
+# Entity Context Menu for React/Cesium
 
-A flexible and user-friendly React component for context menus in Cesium/Resium applications.
+A lightweight, type-safe, and functional context menu system for Resium/Cesium applications. Fully controlled via React Context without global registries or singletons.
 
 ## ✨ Features
 
-- 🖱️ **Multiple Activation Modes**: Right-click, left-click, hover, long press
-- ⌨️ **Full Keyboard Navigation**: Arrow keys, Enter, Escape
-- 🎨 **Customizable Styling**: CSS classes and inline styles
-- 🔄 **Asynchronous Menu Items**: Supports both synchronous and asynchronous data sources
-- 🎯 **Entity Integration**: Seamless integration with Cesium Entities
-- 📱 **Touch Support**: Long-press for mobile devices
-- ♿ **Accessible**: ARIA labels and focus management
-- 🚪 **Portal Rendering**: Avoids z-index issues
-- 🎭 **Custom Renderer**: Custom menu item rendering possible
+- 🎯 **Context-first Architecture** - Everything is declaratively controlled via React Context
+- 🔧 **Pure Functional Design** - Menu factories as pure functions without side effects
+- 🎨 **Flexible Configuration** - Per-entity overrides, type-based factories
+- ⚡ **Async Ready** - Supports asynchronous menu generation with loading states
+- ♿ **Fully Accessible** - Keyboard navigation, ARIA roles, focus management
+- 📦 **TypeScript Support** - Type-safe throughout
+- 🚀 **Zero Dependencies** - Only React as peer dependency
 
 ## 📦 Installation
 
 ```bash
 npm install resium-entity-context-menu
 # or
-pnpm add resium-entity-context-menu
-# or
 yarn add resium-entity-context-menu
+# or
+pnpm add resium-entity-context-menu
 ```
 
 ## 🚀 Quick Start
 
+### 1. Setup Provider
+
 ```tsx
-import React from 'react';
-import ResiumEntityContextMenu from 'resium-entity-context-menu';
-import type { MenuItem } from 'resium-entity-context-menu';
+import { EntityContextMenuProvider, EntityContextMenu } from 'resium-entity-context-menu';
 
-function MyComponent() {
-  const getMenuItems = async (entity) => {
-    return [
-      { id: 'info', label: 'Information', icon: 'ℹ️' },
-      { id: 'edit', label: 'Edit', icon: '✏️' },
-      { id: 'sep1', separator: true },
-      { id: 'delete', label: 'Delete', icon: '🗑️' },
-    ];
-  };
+function App() {
+  // Default factory for all entities
+  const defaultFactory = (ctx) => [
+    {
+      id: 'info',
+      label: 'Show Info',
+      onClick: () => console.log(ctx),
+    },
+  ];
 
-  const handleSelect = (item: MenuItem, entity) => {
-    console.log('Selected:', item.label, entity);
+  // Type-specific factories
+  const factoriesByType = {
+    city: (ctx) => [
+      {
+        id: 'fly',
+        label: 'Fly Here',
+        onClick: () => flyToCity(ctx.worldPosition),
+      },
+    ],
   };
 
   return (
-    <div>
-      {/* Your Cesium/Resium Content */}
-      <ResiumEntityContextMenu
-        entity={myEntity}
-        getMenuItems={getMenuItems}
-        onSelect={handleSelect}
-        openOn="rightClick"
-      />
-    </div>
+    <EntityContextMenuProvider defaultFactory={defaultFactory} factoriesByType={factoriesByType}>
+      <CesiumMap />
+      <EntityContextMenu />
+    </EntityContextMenuProvider>
   );
 }
 ```
 
-## 📖 API Reference
-
-### Props
-
-| Prop                  | Type                                                    | Default        | Description                         |
-| --------------------- | ------------------------------------------------------- | -------------- | ----------------------------------- |
-| `entity`              | `Entity \| string`                                      | -              | Cesium Entity or Entity ID          |
-| `getMenuItems`        | `(entity?) => MenuItem[] \| Promise<MenuItem[]>`        | **Required**   | Function to load menu items         |
-| `onSelect`            | `(item, entity?) => void \| Promise<void>`              | -              | Callback for item selection         |
-| `renderMenuItem`      | `(item) => ReactNode`                                   | -              | Custom menu item renderer           |
-| `openOn`              | `'rightClick' \| 'leftClick' \| 'hover' \| 'longPress'` | `'rightClick'` | Activation mode                     |
-| `positionOffset`      | `{x: number, y: number}`                                | `{x: 4, y: 4}` | Menu position offset                |
-| `portal`              | `boolean`                                               | `true`         | Enable portal rendering             |
-| `closeOnOutsideClick` | `boolean`                                               | `true`         | Close on outside click              |
-| `keyboardNavigation`  | `boolean`                                               | `true`         | Keyboard navigation                 |
-| `className`           | `string`                                                | `''`           | CSS class for the menu              |
-| `style`               | `CSSProperties`                                         | `{}`           | Inline styles                       |
-| `disabled`            | `boolean`                                               | `false`        | Disable menu                        |
-| `zIndex`              | `number`                                                | `3000`         | Z-index of the menu                 |
-| `viewer`              | `Cesium.Viewer`                                         | `null`         | Cesium Viewer for entity projection |
-| `hoverDelay`          | `number`                                                | `250`          | Hover delay (ms)                    |
-| `longPressDuration`   | `number`                                                | `500`          | Long press duration (ms)            |
-
-### MenuItem Interface
+### 2. Use in Components
 
 ```tsx
-interface MenuItem {
-  id: string; // Unique ID
-  label: string; // Display text
-  icon?: React.ReactNode; // Optional: Icon
-  disabled?: boolean; // Item disabled
-  separator?: boolean; // Separator line
-  meta?: any; // Additional data
+import { useEntityContextMenu } from 'resium-entity-context-menu';
+
+function MyEntity({ entity }) {
+  const { showMenu } = useEntityContextMenu();
+
+  const handleRightClick = (e) => {
+    e.preventDefault();
+    showMenu({
+      entityId: entity.id,
+      entityType: entity.type,
+      position: { x: e.clientX, y: e.clientY },
+      entityData: entity,
+      clickedAt: new Date().toISOString(),
+    });
+  };
+
+  return <div onContextMenu={handleRightClick}>{/* Entity content */}</div>;
 }
 ```
 
-## 🎯 Usage Examples
+### 3. Per-Entity Override
 
-### Basic Setup
+Entities can provide their own menu factory:
 
 ```tsx
-import ResiumEntityContextMenu from 'resium-entity-context-menu';
-
-const menuItems = [
-  { id: 'zoom', label: 'Zoom In', icon: '🔍' },
-  { id: 'info', label: 'Show Details', icon: 'ℹ️' },
-  { id: 'sep1', separator: true },
-  { id: 'edit', label: 'Edit', icon: '✏️' },
-  { id: 'delete', label: 'Delete', icon: '🗑️', disabled: false },
-];
-
-<ResiumEntityContextMenu
-  entity={selectedEntity}
-  getMenuItems={() => menuItems}
-  onSelect={(item, entity) => {
-    switch (item.id) {
-      case 'zoom':
-        viewer.zoomTo(entity);
-        break;
-      case 'delete':
-        viewer.entities.remove(entity);
-        break;
-    }
-  }}
-/>;
+const berlinEntity = {
+  id: 'berlin',
+  type: 'city',
+  name: 'Berlin',
+  // Highest priority!
+  menuFactory: (ctx) => [
+    {
+      id: 'special',
+      label: 'Berlin-specific Action',
+      onClick: () => openBerlinDetails(),
+    },
+  ],
+};
 ```
 
-### Asynchronous Menu Items
+## 🎯 Priority System
+
+Menu resolution follows this priority:
+
+1. **entity.menuFactory** - Entity-specific menu (highest priority)
+2. **factoriesByType[entityType]** - Type-based menu
+3. **defaultFactory** - Default menu (lowest priority)
+
+## 📝 API Reference
+
+### EntityContextMenuProvider
 
 ```tsx
-const getAsyncMenuItems = async (entity) => {
-  // API call or other asynchronous operations
-  const permissions = await fetchUserPermissions(entity.id);
+type EntityContextMenuProviderProps = {
+  children: React.ReactNode;
+  defaultFactory: (ctx: EntityContext) => MenuItem[] | Promise<MenuItem[]>;
+  factoriesByType?: Record<string, MenuFactory>;
+  onOpen?: (ctx: EntityContext) => void;
+  onClose?: () => void;
+  closeOnAction?: boolean; // default: true
+};
+```
+
+### useEntityContextMenu Hook
+
+```tsx
+function useEntityContextMenu(): {
+  showMenu: (ctx: EntityContext) => void;
+  hideMenu: () => void;
+  isVisible: boolean;
+  context?: EntityContext;
+  menuItems?: MenuItem[];
+};
+```
+
+### MenuItem Type
+
+```tsx
+type MenuItem = {
+  id: string;
+  label: string;
+  type?: 'action' | 'submenu' | 'toggle' | 'separator' | 'custom';
+  visible?: (ctx: EntityContext) => boolean;
+  enabled?: (ctx: EntityContext) => boolean;
+  onClick?: (ctx: EntityContext) => void | Promise<void>;
+  items?: MenuItem[]; // for submenus
+  render?: (ctx: EntityContext) => React.ReactNode; // for custom items
+  checked?: boolean; // for toggle items
+};
+```
+
+## 🔥 Advanced Features
+
+### Asynchronous Menu Generation
+
+```tsx
+const cityFactory = async (ctx) => {
+  // Load data from server
+  const cityData = await fetchCityData(ctx.entityId);
 
   return [
-    { id: 'view', label: 'View', icon: '👁️' },
-    ...(permissions.canEdit ? [{ id: 'edit', label: 'Edit', icon: '✏️' }] : []),
-    ...(permissions.canDelete
-      ? [
-          { id: 'sep1', separator: true },
-          { id: 'delete', label: 'Delete', icon: '🗑️' },
-        ]
-      : []),
+    {
+      id: 'population',
+      label: `Population: ${cityData.population}`,
+      onClick: () => showDetails(cityData),
+    },
   ];
 };
 ```
 
-### Custom Menu Item Renderer
+### Conditional Visibility & Enabling
 
 ```tsx
-const customRenderer = (item) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-    {item.icon && <span style={{ fontSize: 18 }}>{item.icon}</span>}
-    <div>
-      <div style={{ fontWeight: 'bold' }}>{item.label}</div>
-      {item.meta?.description && (
-        <div style={{ fontSize: 12, color: '#666' }}>{item.meta.description}</div>
-      )}
-    </div>
-    {item.meta?.shortcut && <kbd style={{ marginLeft: 'auto' }}>{item.meta.shortcut}</kbd>}
-  </div>
-);
-
-<ResiumEntityContextMenu
-  renderMenuItem={customRenderer}
-  getMenuItems={() => [
-    {
-      id: 'copy',
-      label: 'Copy',
-      icon: '📋',
-      meta: { description: 'Copy to clipboard', shortcut: 'Ctrl+C' },
-    },
-  ]}
-/>;
+const menuItems = [
+  {
+    id: 'edit',
+    label: 'Edit',
+    visible: (ctx) => ctx.entityData.editable,
+    enabled: (ctx) => !ctx.entityData.locked,
+    onClick: (ctx) => editEntity(ctx.entityId),
+  },
+];
 ```
 
-### Different Activation Modes
+### Submenus
 
 ```tsx
-// Hover activation
-<ResiumEntityContextMenu
-  openOn="hover"
-  hoverDelay={300}
-  entity={entity}
-  getMenuItems={getMenuItems}
-/>
-
-// Long press for touch devices
-<ResiumEntityContextMenu
-  openOn="longPress"
-  longPressDuration={800}
-  entity={entity}
-  getMenuItems={getMenuItems}
-/>
-
-// Left-click activation
-<ResiumEntityContextMenu
-  openOn="leftClick"
-  entity={entity}
-  getMenuItems={getMenuItems}
-/>
+const menuItems = [
+  {
+    id: 'export',
+    label: 'Export',
+    type: 'submenu',
+    items: [
+      { id: 'pdf', label: 'As PDF', onClick: exportPDF },
+      { id: 'csv', label: 'As CSV', onClick: exportCSV },
+    ],
+  },
+];
 ```
 
-### With Cesium Viewer Integration
+### Custom Rendering
 
 ```tsx
-<ResiumEntityContextMenu
-  entity={entity}
-  viewer={cesiumViewer} // For precise entity positioning
-  getMenuItems={getMenuItems}
-  onSelect={(item, entity) => {
-    if (item.id === 'center') {
-      // Viewer can be used for entity operations
-      cesiumViewer.camera.flyTo({ destination: entity.position });
-    }
-  }}
-/>
-```
-
-## 🎨 Styling
-
-### CSS Classes
-
-```css
-.resium-entity-contextmenu {
-  /* Base menu styling */
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 14px;
-}
-
-.resium-entity-contextmenu button {
-  /* Menu item styling */
-  transition: background-color 0.2s ease;
-}
-
-.resium-entity-contextmenu button:hover {
-  background-color: #f0f8ff !important;
-  transform: translateX(2px);
-}
-```
-
-### Inline Styles
-
-```tsx
-<ResiumEntityContextMenu
-  style={{
-    backgroundColor: '#2c3e50',
-    color: 'white',
-    borderRadius: 12,
-    boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-  }}
-  className="dark-menu"
-/>
+const menuItems = [
+  {
+    id: 'color',
+    type: 'custom',
+    render: (ctx) => (
+      <ColorPicker
+        value={ctx.entityData.color}
+        onChange={(color) => updateColor(ctx.entityId, color)}
+      />
+    ),
+  },
+];
 ```
 
 ## ⌨️ Keyboard Shortcuts
 
-| Key       | Action                 |
-| --------- | ---------------------- |
-| `↑` / `↓` | Navigate between items |
-| `Enter`   | Select item            |
-| `Escape`  | Close menu             |
-| `Home`    | Go to first item       |
-| `End`     | Go to last item        |
+- **↑/↓** - Navigate between menu items
+- **→** - Open submenu
+- **←** - Close submenu
+- **Enter/Space** - Activate menu item
+- **Escape** - Close menu
+
+## 🎨 Styling
+
+The menu uses basic CSS classes. For custom styling:
+
+```tsx
+<EntityContextMenu className="my-custom-menu" />
+```
+
+```css
+.my-custom-menu {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  /* More styles */
+}
+```
 
 ## 🧪 Testing
 
-```bash
-# Run tests
-pnpm test
+```tsx
+import { render, screen, fireEvent } from '@testing-library/react';
+import { EntityContextMenuProvider, useEntityContextMenu } from 'resium-entity-context-menu';
 
-# Tests with watch mode
-pnpm test:watch
+test('shows menu on showMenu call', () => {
+  const TestComponent = () => {
+    const { showMenu } = useEntityContextMenu();
 
-# Coverage report
-pnpm test -- --coverage
+    return (
+      <button
+        onClick={() =>
+          showMenu({
+            entityId: 'test',
+            position: { x: 100, y: 100 },
+            clickedAt: new Date().toISOString(),
+          })
+        }
+      >
+        Open Menu
+      </button>
+    );
+  };
+
+  render(
+    <EntityContextMenuProvider defaultFactory={() => [{ id: 'test', label: 'Test Item' }]}>
+      <TestComponent />
+      <EntityContextMenu />
+    </EntityContextMenuProvider>,
+  );
+
+  fireEvent.click(screen.getByText('Open Menu'));
+  expect(screen.getByText('Test Item')).toBeInTheDocument();
+});
 ```
 
-## 🔧 Development
+## 🔧 Configuration for Cesium/Resium
 
-```bash
-# Install dependencies
-pnpm install
+```tsx
+import { Viewer, Entity } from 'resium';
+import { useEntityContextMenu } from 'resium-entity-context-menu';
 
-# Development mode
-pnpm dev
+function CesiumEntity({ position, name }) {
+  const { showMenu } = useEntityContextMenu();
 
-# Create build
-pnpm build
+  const handleClick = (movement, target) => {
+    if (!target) return;
 
-# Linting
-pnpm lint
+    showMenu({
+      entityId: target.id.id,
+      entityType: 'cesium-entity',
+      position: {
+        x: movement.position.x,
+        y: movement.position.y,
+      },
+      worldPosition: target.id.position,
+      entityData: target.id,
+      clickedAt: new Date().toISOString(),
+    });
+  };
 
-# Formatting
-pnpm format
+  return <Entity position={position} name={name} onClick={handleClick} />;
+}
 ```
 
-## 📱 Browser Support
+## 📋 Requirements
 
-- ✅ Chrome 90+
-- ✅ Firefox 88+
-- ✅ Safari 14+
-- ✅ Edge 90+
+- React 16.8+ (Hooks support)
+- TypeScript 4.0+ (optional but recommended)
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions are welcome! Please create an issue or pull request.
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT
 
-## 🙏 Acknowledgments
+## 🙏 Credits
 
-- [Cesium](https://cesium.com/) for the 3D globe technology
-- [Resium](https://github.com/reearth/resium) for React-Cesium integration
-- [React](https://reactjs.org/) for the UI framework
-
-## 📞 Support
-
-- 🐛 [Issues](https://github.com/Oko-Tester/resium-entity-context-menu/issues)
-- 💬 [Discussions](https://github.com/Oko-Tester/resium-entity-context-menu/discussions)
-- 📧 Email: okotestproductions@gmail.com
-
----
-
-Made with ❤️ by [Oko-Tester](https://github.com/Oko-Tester)
+Built with ❤️ for the React/Cesium community

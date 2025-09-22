@@ -1,35 +1,40 @@
-import type { Entity, Viewer } from 'cesium';
-import type React from 'react';
+export type EntityContext = {
+  entityId: string;
+  entityType?: string;
+  position: { x: number; y: number };
+  worldPosition?: any;
+  entityData?: any;
+  clickedAt: string;
+};
 
 export type MenuItem = {
   id: string;
   label: string;
-  icon?: React.ReactNode;
-  disabled?: boolean;
-  separator?: boolean;
-  meta?: any;
+  type?: 'action' | 'submenu' | 'toggle' | 'separator' | 'custom';
+  visible?: (ctx: EntityContext) => boolean;
+  enabled?: (ctx: EntityContext) => boolean;
+  onClick?: (ctx: EntityContext) => void | Promise<void>;
+  items?: MenuItem[];
+  render?: (ctx: EntityContext) => React.ReactNode;
+  checked?: boolean;
 };
 
-export type PositionOffset = {
-  x: number;
-  y: number;
+export type MenuFactory = (ctx: EntityContext) => MenuItem[] | Promise<MenuItem[]>;
+
+export type ResiumEntityContextMenuProviderProps = {
+  children: React.ReactNode;
+  defaultFactory: MenuFactory;
+  factoriesByType?: Record<string, MenuFactory>;
+  onOpen?: (ctx: EntityContext) => void;
+  onClose?: () => void;
+  closeOnAction?: boolean;
 };
 
-export interface ResiumEntityContextMenuProps {
-  entity?: Entity | string;
-  getMenuItems: (entity?: Entity | string) => MenuItem[] | Promise<MenuItem[]>;
-  renderMenuItem?: (item: MenuItem) => React.ReactNode;
-  onSelect?: (item: MenuItem, entity?: Entity | string) => void | Promise<void>;
-  openOn?: 'rightClick' | 'leftClick' | 'hover' | 'longPress';
-  positionOffset?: PositionOffset;
-  portal?: boolean;
-  closeOnOutsideClick?: boolean;
-  keyboardNavigation?: boolean;
-  className?: string;
-  style?: React.CSSProperties;
-  disabled?: boolean;
-  zIndex?: number;
-  viewer?: Viewer | null;
-  hoverDelay?: number;
-  longPressDuration?: number;
-}
+export type ContextMenuState = {
+  isVisible: boolean;
+  context?: EntityContext;
+  menuItems?: MenuItem[];
+  isLoading: boolean;
+  showMenu: (ctx: EntityContext) => void;
+  hideMenu: () => void;
+};
