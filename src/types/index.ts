@@ -1,9 +1,10 @@
+import { Cartesian2 } from 'cesium';
 import { PropsWithChildren } from 'react';
 
 export type EntityContext = {
   entityId: string;
   entityType?: string;
-  position: { x: number; y: number };
+  position: Cartesian2;
   worldPosition?: any;
   entityData?: any;
   clickedAt: string;
