@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useEntityContextMenu } from '../hooks/useEntityContextMenu';
 import { MenuItem } from '../types/index';
-import './EntityContextMenu.css';
+import '../components/EntityContextMenu.css';
 
 export const EntityContextMenu: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { isVisible, context, menuItems, isLoading, hideMenu } = useEntityContextMenu();
