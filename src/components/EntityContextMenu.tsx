@@ -56,11 +56,11 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('click', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isVisible, hideMenu]);
