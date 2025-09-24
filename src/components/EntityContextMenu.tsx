@@ -45,10 +45,13 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
     if (!isVisible) return;
 
     const handleClickOutside = (e: MouseEvent) => {
+      e.preventDefault();
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         hideMenu();
       }
     };
+
+    const handleScroll = () => hideMenu();
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -57,33 +60,31 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
     };
 
     document.addEventListener('click', handleClickOutside);
+    document.addEventListener('scroll', handleScroll);
     document.addEventListener('keydown', handleEscape);
 
     return () => {
       document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('scroll', handleScroll);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isVisible, hideMenu]);
 
-  // Focus menu container when opened
   useEffect(() => {
     if (isVisible && menuRef.current) {
       menuRef.current.focus();
     }
   }, [isVisible]);
 
-  // Reset focus when menuItems change
   useEffect(() => {
     setFocusedIndex(0);
     setOpenSubmenu(null);
   }, [menuItems]);
 
-  // Helper: safe enabled check (supports boolean | (ctx)=>boolean | undefined)
   const isItemEnabled = useCallback(
     (item: MenuItem) => {
-      if (!item.enabled) return true; // undefined or falsy function typed as undefined
+      if (!item.enabled) return true;
       if (typeof item.enabled === 'boolean') return item.enabled;
-      // function
       return !!context && item.enabled(context);
     },
     [context],
@@ -151,12 +152,10 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
   const renderMenuItem = (item: MenuItem, index: number, parentId?: string): React.ReactNode => {
     if (!context) return null;
 
-    // Check visibility
     if (item.visible && !item.visible(context)) {
       return null;
     }
 
-    // Check if enabled
     const isEnabled = isItemEnabled(item);
     const isFocused = index === focusedIndex;
 
@@ -194,6 +193,7 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
         key={itemKey}
         role="menuitem"
         tabIndex={isFocused ? 0 : -1}
+        onContextMenu={(e) => e.preventDefault()}
         className={[
           'ecm-item',
           isEnabled ? 'ecm-item--enabled' : 'ecm-item--disabled',

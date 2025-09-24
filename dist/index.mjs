@@ -112,19 +112,23 @@ var EntityContextMenu = ({ className = "" }) => {
   useEffect(() => {
     if (!isVisible) return;
     const handleClickOutside = (e) => {
+      e.preventDefault();
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         hideMenu();
       }
     };
+    const handleScroll = () => hideMenu();
     const handleEscape = (e) => {
       if (e.key === "Escape") {
         hideMenu();
       }
     };
     document.addEventListener("click", handleClickOutside);
+    document.addEventListener("scroll", handleScroll);
     document.addEventListener("keydown", handleEscape);
     return () => {
       document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("scroll", handleScroll);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isVisible, hideMenu]);
@@ -228,6 +232,7 @@ var EntityContextMenu = ({ className = "" }) => {
       {
         role: "menuitem",
         tabIndex: isFocused ? 0 : -1,
+        onContextMenu: (e) => e.preventDefault(),
         className: [
           "ecm-item",
           isEnabled ? "ecm-item--enabled" : "ecm-item--disabled",
