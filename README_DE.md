@@ -2,6 +2,10 @@
 
 Ein leichtgewichtiges, typsicheres und funktionales Kontextmenü-System für Resium/Cesium-Anwendungen. Vollständig über React Context gesteuert, ohne globale Registry oder Singletons.
 
+## Beispiel Webseite
+
+- [Resium-Entity-Context-Menu](https://resium-entitiy-context-menu-example.okotester.de/)
+
 ## ✨ Features
 
 - 🎯 **Context-first Architecture** - Alles wird deklarativ über React Context gesteuert
