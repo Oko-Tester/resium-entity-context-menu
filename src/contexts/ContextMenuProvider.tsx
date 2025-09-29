@@ -15,7 +15,6 @@ export const EntityContextMenuProvider: React.FC<EntityContextMenuProviderProps>
   factoriesByType = {},
   onOpen,
   onClose,
-  closeOnAction = true,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [context, setContext] = useState<EntityContext | undefined>();

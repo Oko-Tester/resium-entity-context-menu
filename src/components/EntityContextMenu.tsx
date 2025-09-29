@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import { useEntityContextMenu } from '../hooks/useEntityContextMenu';
 import { MenuItem } from '../types/index';
 import '../components/EntityContextMenu.css';
@@ -9,72 +9,77 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [positionCalculated, setPositionCalculated] = useState(false);
 
-  // Clamp position to viewport
-  useEffect(() => {
-    if (!isVisible || !context) return;
+  const computeMenuPosition = (ctx: typeof context, menuEl: HTMLDivElement | null) => {
+    if (!ctx) return { x: 0, y: 0 };
 
-    const menuEl = menuRef.current;
+    let x = ctx.position?.x ?? 0;
+    let y = ctx.position?.y ?? 0;
+
     if (!menuEl) {
-      setMenuPosition({ x: context.position.x, y: context.position.y });
+      return { x, y };
+    }
+
+    const rect = menuEl.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    if (x + rect.width > viewportWidth - 10) {
+      x = Math.max(10, x - rect.width);
+    }
+    if (y + rect.height > viewportHeight - 10) {
+      y = Math.max(10, y - rect.height);
+    }
+
+    return { x, y };
+  };
+
+  useLayoutEffect(() => {
+    if (!isVisible || !context) {
+      setPositionCalculated(false);
       return;
     }
 
-    requestAnimationFrame(() => {
-      const rect = menuEl.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-
-      let x = context.position.x;
-      let y = context.position.y;
-
-      if (x + rect.width > viewportWidth - 10) {
-        x = Math.max(10, x - rect.width);
-      }
-
-      if (y + rect.height > viewportHeight - 10) {
-        y = Math.max(10, y - rect.height);
-      }
-
-      setMenuPosition({ x, y });
-    });
+    const menuEl = menuRef.current;
+    const pos = computeMenuPosition(context, menuEl);
+    setMenuPosition(pos);
+    setPositionCalculated(true);
   }, [isVisible, context, menuItems]);
 
-  // Close on outside click / Escape
   useEffect(() => {
     if (!isVisible) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
-      e.preventDefault();
+    const handleOutsideInteraction = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         hideMenu();
       }
     };
-
     const handleScroll = () => hideMenu();
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        hideMenu();
-      }
+    const handleEscape = (evt: KeyboardEvent) => {
+      if (evt.key === 'Escape') hideMenu();
     };
 
-    document.addEventListener('click', handleClickOutside);
-    document.addEventListener('scroll', handleScroll);
+    document.addEventListener('mousedown', handleOutsideInteraction);
+    document.addEventListener('click', handleOutsideInteraction);
+    document.addEventListener('scroll', handleScroll, true);
+    document.addEventListener('wheel', handleScroll, true);
     document.addEventListener('keydown', handleEscape);
 
     return () => {
-      document.removeEventListener('click', handleClickOutside);
-      document.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('mousedown', handleOutsideInteraction);
+      document.removeEventListener('click', handleOutsideInteraction);
+      document.removeEventListener('scroll', handleScroll, true);
+      document.removeEventListener('wheel', handleScroll, true);
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isVisible, hideMenu]);
 
   useEffect(() => {
-    if (isVisible && menuRef.current) {
+    if (isVisible && positionCalculated && menuRef.current) {
       menuRef.current.focus();
     }
-  }, [isVisible]);
+  }, [isVisible, positionCalculated]);
 
   useEffect(() => {
     setFocusedIndex(0);
@@ -90,7 +95,6 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
     [context],
   );
 
-  // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!menuItems || menuItems.length === 0) return;
@@ -223,15 +227,20 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
     );
   };
 
+  if (!isVisible) return null;
   return (
     <div
       ref={menuRef}
       role="menu"
       tabIndex={-1}
+      onContextMenu={(e) => e.preventDefault()}
       className={`ecm-menu ${className}`}
       style={{
         left: `${menuPosition.x}px`,
         top: `${menuPosition.y}px`,
+        visibility: positionCalculated ? 'visible' : 'hidden',
+        opacity: positionCalculated ? 1 : 0,
+        transition: 'opacity 0.1s ease-in-out',
       }}
       onKeyDown={handleKeyDown}
     >

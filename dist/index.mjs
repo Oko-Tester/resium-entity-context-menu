@@ -1,5 +1,5 @@
 // src/components/EntityContextMenu.tsx
-import { useRef, useState as useState2, useEffect, useCallback as useCallback2 } from "react";
+import { useRef, useState as useState2, useEffect, useCallback as useCallback2, useLayoutEffect } from "react";
 
 // src/hooks/useEntityContextMenu.tsx
 import { useContext } from "react";
@@ -13,8 +13,7 @@ var EntityContextMenuProvider = ({
   defaultFactory,
   factoriesByType = {},
   onOpen,
-  onClose,
-  closeOnAction = true
+  onClose
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [context, setContext] = useState();
@@ -87,56 +86,64 @@ var EntityContextMenu = ({ className = "" }) => {
   const [focusedIndex, setFocusedIndex] = useState2(0);
   const [openSubmenu, setOpenSubmenu] = useState2(null);
   const [menuPosition, setMenuPosition] = useState2({ x: 0, y: 0 });
-  useEffect(() => {
-    if (!isVisible || !context) return;
-    const menuEl = menuRef.current;
+  const [positionCalculated, setPositionCalculated] = useState2(false);
+  const computeMenuPosition = (ctx, menuEl) => {
+    if (!ctx) return { x: 0, y: 0 };
+    let x = ctx.position?.x ?? 0;
+    let y = ctx.position?.y ?? 0;
     if (!menuEl) {
-      setMenuPosition({ x: context.position.x, y: context.position.y });
+      return { x, y };
+    }
+    const rect = menuEl.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    if (x + rect.width > viewportWidth - 10) {
+      x = Math.max(10, x - rect.width);
+    }
+    if (y + rect.height > viewportHeight - 10) {
+      y = Math.max(10, y - rect.height);
+    }
+    return { x, y };
+  };
+  useLayoutEffect(() => {
+    if (!isVisible || !context) {
+      setPositionCalculated(false);
       return;
     }
-    requestAnimationFrame(() => {
-      const rect = menuEl.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      let x = context.position.x;
-      let y = context.position.y;
-      if (x + rect.width > viewportWidth - 10) {
-        x = Math.max(10, x - rect.width);
-      }
-      if (y + rect.height > viewportHeight - 10) {
-        y = Math.max(10, y - rect.height);
-      }
-      setMenuPosition({ x, y });
-    });
+    const menuEl = menuRef.current;
+    const pos = computeMenuPosition(context, menuEl);
+    setMenuPosition(pos);
+    setPositionCalculated(true);
   }, [isVisible, context, menuItems]);
   useEffect(() => {
     if (!isVisible) return;
-    const handleClickOutside = (e) => {
-      e.preventDefault();
+    const handleOutsideInteraction = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         hideMenu();
       }
     };
     const handleScroll = () => hideMenu();
-    const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        hideMenu();
-      }
+    const handleEscape = (evt) => {
+      if (evt.key === "Escape") hideMenu();
     };
-    document.addEventListener("click", handleClickOutside);
-    document.addEventListener("scroll", handleScroll);
+    document.addEventListener("mousedown", handleOutsideInteraction);
+    document.addEventListener("click", handleOutsideInteraction);
+    document.addEventListener("scroll", handleScroll, true);
+    document.addEventListener("wheel", handleScroll, true);
     document.addEventListener("keydown", handleEscape);
     return () => {
-      document.removeEventListener("click", handleClickOutside);
-      document.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("mousedown", handleOutsideInteraction);
+      document.removeEventListener("click", handleOutsideInteraction);
+      document.removeEventListener("scroll", handleScroll, true);
+      document.removeEventListener("wheel", handleScroll, true);
       document.removeEventListener("keydown", handleEscape);
     };
   }, [isVisible, hideMenu]);
   useEffect(() => {
-    if (isVisible && menuRef.current) {
+    if (isVisible && positionCalculated && menuRef.current) {
       menuRef.current.focus();
     }
-  }, [isVisible]);
+  }, [isVisible, positionCalculated]);
   useEffect(() => {
     setFocusedIndex(0);
     setOpenSubmenu(null);
@@ -252,16 +259,21 @@ var EntityContextMenu = ({ className = "" }) => {
       itemKey
     );
   };
+  if (!isVisible) return null;
   return /* @__PURE__ */ jsx2(
     "div",
     {
       ref: menuRef,
       role: "menu",
       tabIndex: -1,
+      onContextMenu: (e) => e.preventDefault(),
       className: `ecm-menu ${className}`,
       style: {
         left: `${menuPosition.x}px`,
-        top: `${menuPosition.y}px`
+        top: `${menuPosition.y}px`,
+        visibility: positionCalculated ? "visible" : "hidden",
+        opacity: positionCalculated ? 1 : 0,
+        transition: "opacity 0.1s ease-in-out"
       },
       onKeyDown: handleKeyDown,
       children: isLoading ? /* @__PURE__ */ jsx2("div", { className: "ecm-loading", children: "Loading menu..." }) : menuItems && menuItems.length > 0 ? /* @__PURE__ */ jsx2("div", { className: "ecm-list", children: menuItems.map((item, index) => renderMenuItem(item, index)) }) : /* @__PURE__ */ jsx2("div", { className: "ecm-empty", children: "No actions available" })
