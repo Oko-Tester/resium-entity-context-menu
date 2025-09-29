@@ -2,6 +2,8 @@ import { useRef, useState, useEffect, useCallback, useLayoutEffect } from 'react
 import { useEntityContextMenu } from '../hooks/useEntityContextMenu';
 import { MenuItem } from '../types/index';
 import '../components/EntityContextMenu.css';
+import { useCesium } from 'resium';
+import { ScreenSpaceEventHandler, ScreenSpaceEventType } from 'cesium';
 
 export const EntityContextMenu: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { isVisible, context, menuItems, isLoading, hideMenu } = useEntityContextMenu();
@@ -10,6 +12,30 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [positionCalculated, setPositionCalculated] = useState(false);
+  const { viewer } = useCesium();
+
+  useEffect(() => {
+    if (!viewer) return;
+
+    const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
+
+    handler.setInputAction(() => {
+      if (isVisible) hideMenu();
+    }, ScreenSpaceEventType.RIGHT_DOWN);
+
+    handler.setInputAction(() => {
+      if (isVisible) hideMenu();
+    }, ScreenSpaceEventType.LEFT_DOWN);
+
+    const canvas = viewer.scene.canvas;
+    const prevent = (e: Event) => e.preventDefault();
+    canvas.addEventListener('contextmenu', prevent);
+
+    return () => {
+      handler.destroy();
+      canvas.removeEventListener('contextmenu', prevent);
+    };
+  }, [viewer?.scene.canvas, isVisible, hideMenu]);
 
   const computeMenuPosition = (ctx: typeof context, menuEl: HTMLDivElement | null) => {
     if (!ctx) return { x: 0, y: 0 };

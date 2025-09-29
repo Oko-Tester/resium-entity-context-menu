@@ -79,6 +79,8 @@ function useEntityContextMenu() {
 }
 
 // src/components/EntityContextMenu.tsx
+import { useCesium } from "resium";
+import { ScreenSpaceEventHandler, ScreenSpaceEventType } from "cesium";
 import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 var EntityContextMenu = ({ className = "" }) => {
   const { isVisible, context, menuItems, isLoading, hideMenu } = useEntityContextMenu();
@@ -87,6 +89,24 @@ var EntityContextMenu = ({ className = "" }) => {
   const [openSubmenu, setOpenSubmenu] = useState2(null);
   const [menuPosition, setMenuPosition] = useState2({ x: 0, y: 0 });
   const [positionCalculated, setPositionCalculated] = useState2(false);
+  const { viewer } = useCesium();
+  useEffect(() => {
+    if (!viewer) return;
+    const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
+    handler.setInputAction(() => {
+      if (isVisible) hideMenu();
+    }, ScreenSpaceEventType.RIGHT_DOWN);
+    handler.setInputAction(() => {
+      if (isVisible) hideMenu();
+    }, ScreenSpaceEventType.LEFT_DOWN);
+    const canvas = viewer.scene.canvas;
+    const prevent = (e) => e.preventDefault();
+    canvas.addEventListener("contextmenu", prevent);
+    return () => {
+      handler.destroy();
+      canvas.removeEventListener("contextmenu", prevent);
+    };
+  }, [viewer?.scene.canvas, isVisible, hideMenu]);
   const computeMenuPosition = (ctx, menuEl) => {
     if (!ctx) return { x: 0, y: 0 };
     let x = ctx.position?.x ?? 0;
