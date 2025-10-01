@@ -1,0 +1,62 @@
+name: 🐞 Bug Report
+description: Melde einen Fehler im System
+title: "[BUG] "
+labels: ["bug"]
+assignees: []
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Beschreibung
+      description: Beschreibe den Fehler so genau wie möglich.
+      placeholder: "Was ist das Problem?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zur Reproduktion
+      description: Wie kann man den Fehler reproduzieren?
+      placeholder: |
+        1. Gehe zu ...
+        2. Klicke auf ...
+        3. Beobachte ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+      description: Was hättest du erwartet?
+      placeholder: "Das System sollte ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Tatsächliches Verhalten
+      description: Was ist tatsächlich passiert?
+      placeholder: "Das System zeigt ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Logs
+      description: Füge Screenshots oder Log-Ausgaben hinzu, wenn möglich.
+      placeholder: "Drag & Drop oder Copy & Paste hier"
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Umgebung
+      description: Wo tritt der Fehler auf? (z. B. Browser, OS, Version)
+      placeholder: "z. B. Chrome 124, macOS 14.2"
+    validations:
+      required: true
