@@ -115,6 +115,7 @@ var EntityContextMenu = ({ className = "" }) => {
   const menuRef = (0, import_react3.useRef)(null);
   const [focusedIndex, setFocusedIndex] = (0, import_react3.useState)(0);
   const [openSubmenu, setOpenSubmenu] = (0, import_react3.useState)(null);
+  const [submenuFocusedIndex, setSubmenuFocusedIndex] = (0, import_react3.useState)(null);
   const [menuPosition, setMenuPosition] = (0, import_react3.useState)({ x: 0, y: 0 });
   const [positionCalculated, setPositionCalculated] = (0, import_react3.useState)(false);
   const { viewer } = (0, import_resium.useCesium)();
@@ -195,6 +196,7 @@ var EntityContextMenu = ({ className = "" }) => {
   (0, import_react3.useEffect)(() => {
     setFocusedIndex(0);
     setOpenSubmenu(null);
+    setSubmenuFocusedIndex(null);
   }, [menuItems]);
   const isItemEnabled = (0, import_react3.useCallback)(
     (item) => {
@@ -211,14 +213,66 @@ var EntityContextMenu = ({ className = "" }) => {
         (item) => item.type !== "separator" && (!item.visible || item.visible(context))
       );
       if (visibleItems.length === 0) return;
+      if (submenuFocusedIndex !== null && openSubmenu) {
+        const currentItem = visibleItems[focusedIndex];
+        if (currentItem?.type === "submenu" && currentItem.items) {
+          const visibleSubmenuItems = currentItem.items.filter(
+            (item) => item.type !== "separator" && (!item.visible || item.visible(context))
+          );
+          switch (e.key) {
+            case "ArrowDown":
+              e.preventDefault();
+              setSubmenuFocusedIndex(
+                (prev) => prev === null ? 0 : (prev + 1) % visibleSubmenuItems.length
+              );
+              break;
+            case "ArrowUp":
+              e.preventDefault();
+              setSubmenuFocusedIndex(
+                (prev) => prev === null ? 0 : (prev - 1 + visibleSubmenuItems.length) % visibleSubmenuItems.length
+              );
+              break;
+            case "Enter":
+            case " ":
+              e.preventDefault();
+              {
+                const focusedSubItem = visibleSubmenuItems[submenuFocusedIndex];
+                if (!focusedSubItem) break;
+                const enabled = isItemEnabled(focusedSubItem);
+                if (!enabled) break;
+                if (focusedSubItem.onClick) {
+                  const res = focusedSubItem.onClick(context);
+                  if (res instanceof Promise) {
+                    res.finally(() => hideMenu());
+                  } else {
+                    hideMenu();
+                  }
+                }
+              }
+              break;
+            case "ArrowLeft":
+              e.preventDefault();
+              setSubmenuFocusedIndex(null);
+              break;
+            case "Escape":
+              e.preventDefault();
+              setOpenSubmenu(null);
+              setSubmenuFocusedIndex(null);
+              break;
+          }
+          return;
+        }
+      }
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
           setFocusedIndex((prev) => (prev + 1) % visibleItems.length);
+          setSubmenuFocusedIndex(null);
           break;
         case "ArrowUp":
           e.preventDefault();
           setFocusedIndex((prev) => (prev - 1 + visibleItems.length) % visibleItems.length);
+          setSubmenuFocusedIndex(null);
           break;
         case "Enter":
         case " ":
@@ -230,6 +284,7 @@ var EntityContextMenu = ({ className = "" }) => {
             if (!enabled) break;
             if (focusedItem.type === "submenu" && focusedItem.items) {
               setOpenSubmenu(focusedItem.id);
+              setSubmenuFocusedIndex(0);
             } else if (focusedItem.onClick) {
               const res = focusedItem.onClick(context);
               if (res instanceof Promise) {
@@ -243,25 +298,29 @@ var EntityContextMenu = ({ className = "" }) => {
         case "ArrowRight": {
           const item = visibleItems[focusedIndex];
           if (item?.type === "submenu" && item.items) {
+            e.preventDefault();
             setOpenSubmenu(item.id);
+            setSubmenuFocusedIndex(0);
           }
           break;
         }
         case "ArrowLeft":
+          e.preventDefault();
           setOpenSubmenu(null);
+          setSubmenuFocusedIndex(null);
           break;
       }
     },
-    [menuItems, context, focusedIndex, hideMenu, isItemEnabled]
+    [menuItems, context, focusedIndex, submenuFocusedIndex, openSubmenu, hideMenu, isItemEnabled]
   );
   if (!isVisible) return null;
-  const renderMenuItem = (item, index, parentId) => {
+  const renderMenuItem = (item, index, parentId, visibleItemIndex, isSubmenuItem) => {
     if (!context) return null;
     if (item.visible && !item.visible(context)) {
       return null;
     }
     const isEnabled = isItemEnabled(item);
-    const isFocused = index === focusedIndex;
+    const isFocused = isSubmenuItem ? submenuFocusedIndex === visibleItemIndex : visibleItemIndex !== void 0 && visibleItemIndex === focusedIndex;
     if (item.type === "separator") {
       return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-separator" }, item.id ?? `sep-${index}`);
     }
@@ -296,12 +355,30 @@ var EntityContextMenu = ({ className = "" }) => {
           item.type === "submenu" ? "ecm-item--submenu" : ""
         ].join(" ").trim(),
         onClick: handleClick,
-        onMouseEnter: () => setFocusedIndex(index),
+        onMouseEnter: () => {
+          if (isSubmenuItem && visibleItemIndex !== void 0) {
+            setSubmenuFocusedIndex(visibleItemIndex);
+          } else if (visibleItemIndex !== void 0) {
+            setFocusedIndex(visibleItemIndex);
+            setSubmenuFocusedIndex(null);
+          }
+        },
         children: [
           item.type === "toggle" && item.checked && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ecm-checkmark", children: "\u2713" }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ecm-item__label", children: item.label }),
           item.type === "submenu" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ecm-item__submenu-indicator", children: "\u25B6" }),
-          item.type === "submenu" && openSubmenu === item.id && item.items && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-submenu", children: item.items.map((subItem, subIndex) => renderMenuItem(subItem, subIndex, item.id)) })
+          item.type === "submenu" && openSubmenu === item.id && item.items && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-submenu", children: (() => {
+            let submenuVisibleIndex = 0;
+            return item.items.map((subItem, subIndex) => {
+              const shouldRender = !subItem.visible || subItem.visible(context);
+              const isActuallyVisible = shouldRender && subItem.type !== "separator";
+              const currentSubmenuIndex = isActuallyVisible ? submenuVisibleIndex : void 0;
+              if (isActuallyVisible) {
+                submenuVisibleIndex++;
+              }
+              return renderMenuItem(subItem, subIndex, item.id, currentSubmenuIndex, true);
+            });
+          })() })
         ]
       },
       itemKey
@@ -324,7 +401,18 @@ var EntityContextMenu = ({ className = "" }) => {
         transition: "opacity 0.1s ease-in-out"
       },
       onKeyDown: handleKeyDown,
-      children: isLoading ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-loading", children: "Loading menu..." }) : menuItems && menuItems.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-list", children: menuItems.map((item, index) => renderMenuItem(item, index)) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-empty", children: "No actions available" })
+      children: isLoading ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-loading", children: "Loading menu..." }) : menuItems && menuItems.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-list", children: (() => {
+        let visibleItemIndex = 0;
+        return menuItems.map((item, index) => {
+          const shouldRender = !item.visible || item.visible(context);
+          const isActuallyVisible = shouldRender && item.type !== "separator";
+          const currentVisibleIndex = isActuallyVisible ? visibleItemIndex : void 0;
+          if (isActuallyVisible) {
+            visibleItemIndex++;
+          }
+          return renderMenuItem(item, index, void 0, currentVisibleIndex);
+        });
+      })() }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ecm-empty", children: "No actions available" })
     }
   );
 };
