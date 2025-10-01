@@ -1,20 +1,20 @@
 # Entity Context Menu für React/Cesium
 
-Ein leichtgewichtiges, typsicheres und funktionales Kontextmenü-System für Resium/Cesium-Anwendungen. Vollständig über React Context gesteuert, ohne globale Registry oder Singletons.
+Ein leichtgewichtiges, typsicheres Kontextmenü-System für Resium/Cesium-Anwendungen. Vollständig über React Context gesteuert mit automatischer Cesium-Event-Behandlung.
 
-## Beispiel Webseite
+## 🌐 Live Demo
 
-- [Resium-Entity-Context-Menu](https://resium-entitiy-context-menu-example.okotester.de/)
+- 🌍 [Website](https://resium-entitiy-context-menu-example.okotester.de/)
 
 ## ✨ Features
 
 - 🎯 **Context-first Architecture** - Alles wird deklarativ über React Context gesteuert
-- 🔧 **Pure Functional Design** - Menu Factories als pure functions ohne Seiteneffekte
-- 🎨 **Flexible Konfiguration** - Per-Entity Overrides, Type-basierte Factories
-- ⚡ **Async Ready** - Unterstützt asynchrone Menu-Generierung mit Loading States
-- ♿ **Vollständig zugänglich** - Keyboard Navigation, ARIA Roles, Focus Management
+- 🔧 **Automatische Cesium-Integration** - Event Handler werden automatisch auf dem Cesium-Canvas registriert
+- 🎨 **Flexible Konfiguration** - Per-Entity Overrides, typ-basierte Factories
+- ⚡ **Async Ready** - Unterstützt asynchrone Menü-Generierung mit Loading States
+- ♿ **Vollständig zugänglich** - Tastaturnavigation, ARIA Roles, Focus Management
 - 📦 **TypeScript Support** - Durchgehend typsicher
-- 🚀 **Zero Dependencies** - Nur React als Peer Dependency
+- 🚀 **Keine zusätzlichen Abhängigkeiten** - Nutzt React, Cesium und Resium (Peer Dependencies)
 
 ## 📦 Installation
 
@@ -28,10 +28,23 @@ pnpm add resium-entity-context-menu
 
 ## 🚀 Quick Start
 
-### 1. Provider einrichten
+### 1. Styles Importieren
+
+**Wichtig:** Importiere die CSS-Datei einmal im Einstiegspunkt deiner Anwendung:
 
 ```tsx
+// src/main.tsx oder src/index.tsx
+import 'resium-entity-context-menu/styles.css';
+```
+
+### 2. Provider und Komponente Einrichten
+
+Die `EntityContextMenu`-Komponente **muss** innerhalb eines Resium `<Viewer>` platziert werden, da sie den `useCesium()`-Hook verwendet, um auf den Cesium Viewer zuzugreifen und automatisch Event Handler zu registrieren.
+
+```tsx
+import { Viewer } from 'resium';
 import { EntityContextMenuProvider, EntityContextMenu } from 'resium-entity-context-menu';
+import { Cartesian3 } from 'cesium';
 
 function App() {
   // Standard-Factory für alle Entities
@@ -39,7 +52,7 @@ function App() {
     {
       id: 'info',
       label: 'Info anzeigen',
-      onClick: () => console.log(ctx),
+      onClick: () => console.log('Entity-Info:', ctx),
     },
   ];
 
@@ -48,59 +61,132 @@ function App() {
     city: (ctx) => [
       {
         id: 'fly',
-        label: 'Hier hinfliegen',
-        onClick: () => flyToCity(ctx.worldPosition),
+        label: 'Hierhin fliegen',
+        onClick: () => {
+          // ctx.worldPosition ist für Cesium-Entities verfügbar
+          if (ctx.worldPosition) {
+            viewer.camera.flyTo({
+              destination: ctx.worldPosition,
+              duration: 2,
+            });
+          }
+        },
       },
     ],
   };
 
   return (
     <EntityContextMenuProvider defaultFactory={defaultFactory} factoriesByType={factoriesByType}>
-      <CesiumMap />
-      <EntityContextMenu />
+      <Viewer full>
+        {/* Deine Cesium-Entities hier */}
+
+        {/* EntityContextMenu MUSS innerhalb des Viewers sein */}
+        <EntityContextMenu />
+      </Viewer>
     </EntityContextMenuProvider>
   );
 }
 ```
 
-### 2. In Komponenten verwenden
+### 3. Kontextmenü Auslösen
+
+#### Option A: Verwendung der Resium Entity-Komponente
 
 ```tsx
-import { useEntityContextMenu } from entity-context-menu';
+import { Entity } from 'resium';
+import { useEntityContextMenu } from 'resium-entity-context-menu';
+import { Cartesian3, Cartesian2 } from 'cesium';
 
-function MyEntity({ entity }) {
+function CesiumEntity({ position, name, id }) {
   const { showMenu } = useEntityContextMenu();
 
-  const handleRightClick = (e) => {
-    e.preventDefault();
+  const handleRightClick = (movement, target) => {
+    if (!target?.id) return;
+
     showMenu({
-      entityId: entity.id,
-      entityType: entity.type,
-      position: { x: e.clientX, y: e.clientY },
-      entityData: entity,
+      entityId: target.id.id || id,
+      entityType: 'city', // oder ein beliebiger benutzerdefinierter Typ
+      position: new Cartesian2(movement.position.x, movement.position.y),
+      worldPosition: target.id.position?._value || position,
+      entityData: target.id,
       clickedAt: new Date().toISOString(),
     });
   };
 
-  return <div onContextMenu={handleRightClick}>{/* Entity-Inhalt */}</div>;
+  return <Entity position={position} name={name} onRightClick={handleRightClick} />;
 }
 ```
 
-### 3. Per-Entity Override
+#### Option B: Verwendung eines benutzerdefinierten Event Handlers
 
-Entities können ihre eigene Menu-Factory mitbringen:
+```tsx
+import { useEntityContextMenu } from 'resium-entity-context-menu';
+import { useCesium } from 'resium';
+import { ScreenSpaceEventHandler, ScreenSpaceEventType, Cartesian2 } from 'cesium';
+import { useEffect } from 'react';
+
+function CustomEventHandler() {
+  const { viewer } = useCesium();
+  const { showMenu } = useEntityContextMenu();
+
+  useEffect(() => {
+    if (!viewer) return;
+
+    const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
+
+    handler.setInputAction((movement) => {
+      const pickedObject = viewer.scene.pick(movement.position);
+
+      if (pickedObject?.id) {
+        showMenu({
+          entityId: pickedObject.id.id,
+          entityType: pickedObject.id.type || 'default',
+          position: new Cartesian2(movement.position.x, movement.position.y),
+          worldPosition: pickedObject.id.position?._value,
+          entityData: pickedObject.id,
+          clickedAt: new Date().toISOString(),
+        });
+      }
+    }, ScreenSpaceEventType.RIGHT_CLICK);
+
+    return () => handler.destroy();
+  }, [viewer, showMenu]);
+
+  return null;
+}
+```
+
+### 4. Per-Entity Menü Override
+
+Entities können ihre eigene Menü-Factory bereitstellen (höchste Priorität):
 
 ```tsx
 const berlinEntity = {
   id: 'berlin',
   type: 'city',
   name: 'Berlin',
-  // Höchste Priorität!
+  position: Cartesian3.fromDegrees(13.405, 52.52, 0),
+  // Entity-spezifische Menü-Factory (höchste Priorität!)
   menuFactory: (ctx) => [
     {
       id: 'special',
-      label: 'Berlin-spezifische Aktion',
-      onClick: () => openBerlinDetails(),
+      label: 'Berlin Spezial-Aktionen',
+      type: 'submenu',
+      items: [
+        {
+          id: 'wiki',
+          label: 'Wikipedia öffnen',
+          onClick: () => window.open('https://de.wikipedia.org/wiki/Berlin', '_blank'),
+        },
+        {
+          id: 'weather',
+          label: 'Wetter anzeigen',
+          onClick: async (ctx) => {
+            const weather = await fetchWeather('Berlin');
+            console.log(weather);
+          },
+        },
+      ],
     },
   ],
 };
@@ -108,13 +194,13 @@ const berlinEntity = {
 
 ## 🎯 Prioritätssystem
 
-Die Menu-Auflösung folgt dieser Priorität:
+Die Menü-Auflösung folgt dieser Priorität:
 
 1. **entity.menuFactory** - Entity-spezifisches Menü (höchste Priorität)
 2. **factoriesByType[entityType]** - Typ-basiertes Menü
 3. **defaultFactory** - Standard-Menü (niedrigste Priorität)
 
-## 📝 API Referenz
+## 📝 API-Referenz
 
 ### EntityContextMenuProvider
 
@@ -125,19 +211,19 @@ type EntityContextMenuProviderProps = {
   factoriesByType?: Record<string, MenuFactory>;
   onOpen?: (ctx: EntityContext) => void;
   onClose?: () => void;
-  closeOnAction?: boolean; // default: true
 };
 ```
 
-### useEntityContextMenu Hook
+### EntityContext Type
 
 ```tsx
-function useEntityContextMenu(): {
-  showMenu: (ctx: EntityContext) => void;
-  hideMenu: () => void;
-  isVisible: boolean;
-  context?: EntityContext;
-  menuItems?: MenuItem[];
+type EntityContext = {
+  entityId: string;
+  entityType?: string;
+  position: Cartesian2; // Bildschirmkoordinaten
+  worldPosition?: Cartesian3; // 3D-Weltposition (optional)
+  entityData?: any; // Die Cesium-Entity oder benutzerdefinierte Daten
+  clickedAt: string; // ISO-Zeitstempel
 };
 ```
 
@@ -151,26 +237,44 @@ type MenuItem = {
   visible?: (ctx: EntityContext) => boolean;
   enabled?: (ctx: EntityContext) => boolean;
   onClick?: (ctx: EntityContext) => void | Promise<void>;
-  items?: MenuItem[]; // für Submenüs
-  render?: (ctx: EntityContext) => React.ReactNode; // für custom items
-  checked?: boolean; // für toggle items
+  items?: MenuItem[]; // für Untermenüs
+  render?: (ctx: EntityContext) => React.ReactNode; // für benutzerdefinierte Items
+  checked?: boolean; // für Toggle-Items
+};
+```
+
+### useEntityContextMenu Hook
+
+```tsx
+function useEntityContextMenu(): {
+  showMenu: (ctx: EntityContext) => void;
+  hideMenu: () => void;
+  isVisible: boolean;
+  context?: EntityContext;
+  menuItems?: MenuItem[];
+  isLoading: boolean;
 };
 ```
 
 ## 🔥 Erweiterte Features
 
-### Asynchrone Menu-Generierung
+### Asynchrone Menü-Generierung
 
 ```tsx
 const cityFactory = async (ctx) => {
-  // Daten vom Server laden
-  const cityData = await fetchCityData(ctx.entityId);
+  // Daten von der API abrufen
+  const cityData = await fetch(`/api/cities/${ctx.entityId}`).then((r) => r.json());
 
   return [
     {
       id: 'population',
-      label: `Einwohner: ${cityData.population}`,
-      onClick: () => showDetails(cityData),
+      label: `Einwohner: ${cityData.population.toLocaleString('de-DE')}`,
+      onClick: () => showCityDetails(cityData),
+    },
+    {
+      id: 'area',
+      label: `Fläche: ${cityData.area} km²`,
+      onClick: () => showAreaInfo(cityData),
     },
   ];
 };
@@ -179,86 +283,201 @@ const cityFactory = async (ctx) => {
 ### Bedingte Sichtbarkeit & Aktivierung
 
 ```tsx
-const menuItems = [
+const menuFactory = (ctx) => [
   {
     id: 'edit',
-    label: 'Bearbeiten',
-    visible: (ctx) => ctx.entityData.editable,
-    enabled: (ctx) => !ctx.entityData.locked,
-    onClick: (ctx) => editEntity(ctx.entityId),
+    label: 'Entity bearbeiten',
+    // Nur für bearbeitbare Entities anzeigen
+    visible: (ctx) => ctx.entityData?.editable === true,
+    // Nur aktivieren, wenn nicht gesperrt
+    enabled: (ctx) => !ctx.entityData?.locked,
+    onClick: (ctx) => openEditor(ctx.entityId),
+  },
+  {
+    id: 'delete',
+    label: 'Löschen',
+    visible: (ctx) => ctx.entityData?.canDelete,
+    onClick: async (ctx) => {
+      if (confirm('Diese Entity löschen?')) {
+        await deleteEntity(ctx.entityId);
+      }
+    },
   },
 ];
 ```
 
-### Submenüs
+### Verschachtelte Untermenüs
 
 ```tsx
-const menuItems = [
+const exportMenu = [
   {
     id: 'export',
     label: 'Exportieren',
     type: 'submenu',
     items: [
-      { id: 'pdf', label: 'Als PDF', onClick: exportPDF },
-      { id: 'csv', label: 'Als CSV', onClick: exportCSV },
+      {
+        id: 'formats',
+        label: 'Formate',
+        type: 'submenu',
+        items: [
+          { id: 'json', label: 'JSON', onClick: () => exportAsJSON() },
+          { id: 'csv', label: 'CSV', onClick: () => exportAsCSV() },
+          { id: 'kml', label: 'KML', onClick: () => exportAsKML() },
+        ],
+      },
+      { id: 'separator', type: 'separator' },
+      { id: 'email', label: 'Per E-Mail senden', onClick: () => emailExport() },
     ],
   },
 ];
 ```
 
-### Custom Rendering
+### Toggle-Items
 
 ```tsx
-const menuItems = [
+const viewMenu = [
   {
-    id: 'color',
+    id: 'show-label',
+    label: 'Label anzeigen',
+    type: 'toggle',
+    checked: entity.label?.show,
+    onClick: (ctx) => {
+      const entity = viewer.entities.getById(ctx.entityId);
+      if (entity.label) {
+        entity.label.show = !entity.label.show;
+      }
+    },
+  },
+];
+```
+
+### Benutzerdefiniertes Rendering
+
+```tsx
+const customMenu = [
+  {
+    id: 'color-picker',
     type: 'custom',
     render: (ctx) => (
-      <ColorPicker
-        value={ctx.entityData.color}
-        onChange={(color) => updateColor(ctx.entityId, color)}
-      />
+      <div style={{ padding: '8px' }}>
+        <label>Entity-Farbe:</label>
+        <input
+          type="color"
+          defaultValue={ctx.entityData?.color}
+          onChange={(e) => updateEntityColor(ctx.entityId, e.target.value)}
+        />
+      </div>
     ),
   },
 ];
 ```
 
-## ⌨️ Keyboard Shortcuts
+### Trennlinien
+
+```tsx
+const menuWithSeparators = [
+  { id: 'info', label: 'Info anzeigen', onClick: showInfo },
+  { id: 'edit', label: 'Bearbeiten', onClick: edit },
+  { id: 'sep1', type: 'separator' },
+  { id: 'delete', label: 'Löschen', onClick: deleteEntity },
+];
+```
+
+## ⌨️ Tastaturnavigation
+
+Das Kontextmenü unterstützt vollständige Tastaturnavigation:
 
 - **↑/↓** - Navigation zwischen Menüpunkten
-- **→** - Submenü öffnen
-- **←** - Submenü schließen
-- **Enter/Space** - Menüpunkt aktivieren
-- **Escape** - Menü schließen
+- **→** - Untermenü öffnen / In Untermenü wechseln
+- **←** - Untermenü schließen / Zum Elternmenü zurückkehren
+- **Enter** oder **Leertaste** - Menüpunkt aktivieren
+- **Escape** - Menü vollständig schließen
 
-## 🎨 Styling / CSS (wichtig)
+Der Fokus wird automatisch verwaltet und Menüpunkte sind korrekt für Screenreader fokussierbar.
 
-Dieses Paket liefert **ungestylte CSS-Dateien**, die du einmal in deiner Anwendung selbst importieren musst, damit das Kontextmenü korrekt dargestellt wird.
+## 🎨 Styling
 
-**Wo die Datei liegt:**  
-`resium-entity-context-menu/styles.css`
+### Erforderliche Styles Importieren
 
-### Wie importieren
+Importiere die Basis-Styles einmal im Einstiegspunkt deiner Anwendung:
 
-Importiere das Stylesheet **einmal** im Entry-Point (Root) deiner Anwendung. Beispiele:
-
-- **Create React App / Vite / Parcel** (irgendwo im App-Entry, z. B. `src/main.tsx` oder `src/index.tsx`):
-
-```ts
-// src/main.tsx
+```tsx
+// src/main.tsx oder src/index.tsx
 import 'resium-entity-context-menu/styles.css';
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-// ...
 ```
+
+### Benutzerdefiniertes Styling
+
+Du kannst das Aussehen mit CSS anpassen:
+
+```tsx
+<EntityContextMenu className="my-custom-menu" />
+```
+
+```css
+/* Standard-Styles überschreiben */
+.my-custom-menu {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.my-custom-menu .ecm-item {
+  color: #fff;
+  padding: 10px 16px;
+}
+
+.my-custom-menu .ecm-item--focused {
+  background: #404040;
+}
+
+.my-custom-menu .ecm-item--enabled:hover {
+  background: #505050;
+}
+```
+
+### Verfügbare CSS-Klassen
+
+- `.ecm-menu` - Hauptmenü-Container
+- `.ecm-list` - Menüpunkte-Liste
+- `.ecm-item` - Einzelner Menüpunkt
+- `.ecm-item--enabled` - Aktivierter Punkt
+- `.ecm-item--disabled` - Deaktivierter Punkt
+- `.ecm-item--focused` - Fokussierter Punkt (Tastaturnavigation)
+- `.ecm-item--toggle` - Toggle-Typ Punkt
+- `.ecm-item--submenu` - Punkt mit Untermenü
+- `.ecm-item__label` - Punkt-Label-Text
+- `.ecm-item__submenu-indicator` - Untermenü-Pfeil
+- `.ecm-separator` - Trennlinie
+- `.ecm-submenu` - Untermenü-Container
+- `.ecm-checkmark` - Häkchen für Toggle-Items
+- `.ecm-loading` - Ladezustand
+- `.ecm-empty` - Leeres Menü-Zustand
 
 ## 🧪 Testing
 
 ```tsx
 import { render, screen, fireEvent } from '@testing-library/react';
-import { EntityContextMenuProvider, useEntityContextMenu } from entity-context-menu';
+import {
+  EntityContextMenuProvider,
+  EntityContextMenu,
+  useEntityContextMenu,
+} from 'resium-entity-context-menu';
+import { Cartesian2 } from 'cesium';
 
-test('zeigt Menü bei showMenu Aufruf', () => {
+// Cesium/Resium mocken
+jest.mock('resium', () => ({
+  useCesium: () => ({
+    viewer: {
+      scene: {
+        canvas: document.createElement('canvas'),
+      },
+    },
+  }),
+}));
+
+test('zeigt Menü bei showMenu-Aufruf', () => {
   const TestComponent = () => {
     const { showMenu } = useEntityContextMenu();
 
@@ -266,8 +485,8 @@ test('zeigt Menü bei showMenu Aufruf', () => {
       <button
         onClick={() =>
           showMenu({
-            entityId: 'test',
-            position: { x: 100, y: 100 },
+            entityId: 'test-entity',
+            position: new Cartesian2(100, 100),
             clickedAt: new Date().toISOString(),
           })
         }
@@ -277,8 +496,10 @@ test('zeigt Menü bei showMenu Aufruf', () => {
     );
   };
 
+  const defaultFactory = () => [{ id: 'test', label: 'Test Item', onClick: jest.fn() }];
+
   render(
-    <EntityContextMenuProvider defaultFactory={() => [{ id: 'test', label: 'Test Item' }]}>
+    <EntityContextMenuProvider defaultFactory={defaultFactory}>
       <TestComponent />
       <EntityContextMenu />
     </EntityContextMenuProvider>,
@@ -289,43 +510,128 @@ test('zeigt Menü bei showMenu Aufruf', () => {
 });
 ```
 
-## 🔧 Konfiguration für Cesium/Resium
+## 🔧 Vollständiges Cesium/Resium-Beispiel
 
 ```tsx
 import { Viewer, Entity } from 'resium';
-import { useEntityContextMenu } from 'resium-entity-context-menu';
+import { Cartesian3, Color, Cartesian2 } from 'cesium';
+import {
+  EntityContextMenuProvider,
+  EntityContextMenu,
+  useEntityContextMenu,
+} from 'resium-entity-context-menu';
+import 'resium-entity-context-menu/styles.css';
 
-function CesiumEntity({ position, name }) {
+function CesiumApp() {
+  const cities = [
+    { id: 'berlin', name: 'Berlin', position: Cartesian3.fromDegrees(13.405, 52.52, 0) },
+    { id: 'paris', name: 'Paris', position: Cartesian3.fromDegrees(2.3522, 48.8566, 0) },
+    { id: 'london', name: 'London', position: Cartesian3.fromDegrees(-0.1276, 51.5074, 0) },
+  ];
+
+  const defaultFactory = (ctx) => [
+    {
+      id: 'zoom',
+      label: 'Zur Entity zoomen',
+      onClick: () => console.log('Zoomen zu', ctx.entityId),
+    },
+  ];
+
+  const cityFactory = (ctx) => [
+    {
+      id: 'info',
+      label: `Info: ${ctx.entityData?.name}`,
+      onClick: () => alert(`Stadt: ${ctx.entityData?.name}`),
+    },
+    {
+      id: 'actions',
+      label: 'Aktionen',
+      type: 'submenu',
+      items: [
+        {
+          id: 'fly',
+          label: 'Hierhin fliegen',
+          onClick: () => {
+            // Viewer aus Kontext bei Bedarf zugreifen
+            console.log('Flug zu', ctx.worldPosition);
+          },
+        },
+        {
+          id: 'highlight',
+          label: 'Hervorheben',
+          onClick: () => console.log('Hervorheben', ctx.entityId),
+        },
+      ],
+    },
+  ];
+
+  return (
+    <EntityContextMenuProvider
+      defaultFactory={defaultFactory}
+      factoriesByType={{ city: cityFactory }}
+      onOpen={(ctx) => console.log('Menü geöffnet für:', ctx.entityId)}
+      onClose={() => console.log('Menü geschlossen')}
+    >
+      <Viewer full timeline={false} animation={false}>
+        {cities.map((city) => (
+          <CityEntity key={city.id} city={city} />
+        ))}
+
+        <EntityContextMenu />
+      </Viewer>
+    </EntityContextMenuProvider>
+  );
+}
+
+function CityEntity({ city }) {
   const { showMenu } = useEntityContextMenu();
 
-  const handleClick = (movement, target) => {
+  const handleRightClick = (movement, target) => {
     if (!target) return;
 
     showMenu({
-      entityId: target.id.id,
-      entityType: 'cesium-entity',
-      position: {
-        x: movement.position.x,
-        y: movement.position.y,
-      },
-      worldPosition: target.id.position,
-      entityData: target.id,
+      entityId: city.id,
+      entityType: 'city',
+      position: new Cartesian2(movement.position.x, movement.position.y),
+      worldPosition: city.position,
+      entityData: { ...city, editable: true },
       clickedAt: new Date().toISOString(),
     });
   };
 
-  return <Entity position={position} name={name} onClick={handleClick} />;
+  return (
+    <Entity
+      position={city.position}
+      name={city.name}
+      point={{ pixelSize: 10, color: Color.RED }}
+      onRightClick={handleRightClick}
+    />
+  );
 }
+
+export default CesiumApp;
 ```
 
 ## 📋 Anforderungen
 
-- React 16.8+ (Hooks Support)
+- React 18+ (Hooks Support)
+- Cesium 1.90+ (Peer Dependency)
+- Resium 1.17+ (Peer Dependency)
 - TypeScript 4.0+ (optional, aber empfohlen)
+
+## ⚠️ Wichtige Hinweise
+
+1. **EntityContextMenu muss innerhalb des Viewers sein**: Die Komponente verwendet den `useCesium()`-Hook und muss innerhalb einer Resium `<Viewer>`-Komponente gerendert werden.
+
+2. **Automatische Event-Behandlung**: Die Komponente registriert automatisch Event Handler auf dem Cesium-Canvas. Eine manuelle Behandlung von Rechtsklicks auf Canvas-Ebene ist nicht erforderlich.
+
+3. **Positionsformat**: Die `position` in `EntityContext` muss ein `Cartesian2` (Bildschirmkoordinaten) sein, nicht `Cartesian3`.
+
+4. **Styles Importieren**: Vergiss nicht, `resium-entity-context-menu/styles.css` im Einstiegspunkt deiner Anwendung zu importieren.
 
 ## 🤝 Beitragen
 
-Beiträge sind willkommen! Bitte erstellen Sie einen Issue oder Pull Request.
+Beiträge sind willkommen! Bitte erstelle gerne einen Pull Request.
 
 ## 📄 Lizenz
 
@@ -333,4 +639,4 @@ MIT
 
 ## 🙏 Credits
 
-Entwickelt mit ❤️ für die React/Cesium Community
+Entwickelt mit ❤️ für die React/Cesium-Community
