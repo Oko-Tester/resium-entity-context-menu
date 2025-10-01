@@ -1,0 +1,51 @@
+name: ✨ Feature Request
+description: Schlage eine neue Funktion oder Verbesserung vor
+title: "[FEATURE] "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problemstellung
+      description: Welches Problem löst das Feature? Warum ist es wichtig?
+      placeholder: "Aktuell fehlt eine Möglichkeit ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Vorgeschlagene Lösung
+      description: Beschreibe die gewünschte Lösung / Funktion.
+      placeholder: "Das System sollte ermöglichen ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativen
+      description: Welche Alternativen hast du in Betracht gezogen?
+      placeholder: "Man könnte auch ..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Zusatzinformationen
+      description: Weitere relevante Infos, Links oder Beispiele.
+      placeholder: "Z. B. Screenshots, Referenzen, Mockups"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: acceptance
+    attributes:
+      label: Akzeptanzkriterien
+      description: Definiere die Kriterien, wann das Feature als fertig gilt.
+      options:
+        - label: Funktion ist implementiert
+        - label: Tests sind vorhanden
+        - label: Dokumentation ist angepasst
