@@ -1,45 +1,45 @@
 name: 🐞 Bug Report
-description: Melde einen Fehler im System
-title: "[BUG] "
-labels: ["bug"]
+description: Report a bug in the system
+title: '[BUG] '
+labels: ['bug']
 assignees: []
 body:
   - type: textarea
     id: description
     attributes:
-      label: Beschreibung
-      description: Beschreibe den Fehler so genau wie möglich.
-      placeholder: "Was ist das Problem?"
+      label: Description
+      description: Describe the bug as precisely as possible.
+      placeholder: 'What is the problem?'
     validations:
       required: true
 
   - type: textarea
     id: steps
     attributes:
-      label: Schritte zur Reproduktion
-      description: Wie kann man den Fehler reproduzieren?
+      label: Steps to Reproduce
+      description: How can the bug be reproduced?
       placeholder: |
-        1. Gehe zu ...
-        2. Klicke auf ...
-        3. Beobachte ...
+        1. Go to ...
+        2. Click on ...
+        3. Observe ...
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Erwartetes Verhalten
-      description: Was hättest du erwartet?
-      placeholder: "Das System sollte ..."
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: 'The system should ...'
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: Tatsächliches Verhalten
-      description: Was ist tatsächlich passiert?
-      placeholder: "Das System zeigt ..."
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: 'The system shows ...'
     validations:
       required: true
 
@@ -47,16 +47,16 @@ body:
     id: screenshots
     attributes:
       label: Screenshots / Logs
-      description: Füge Screenshots oder Log-Ausgaben hinzu, wenn möglich.
-      placeholder: "Drag & Drop oder Copy & Paste hier"
+      description: Add screenshots or log output if possible.
+      placeholder: 'Drag & Drop or Copy & Paste here'
     validations:
       required: false
 
   - type: input
     id: environment
     attributes:
-      label: Umgebung
-      description: Wo tritt der Fehler auf? (z. B. Browser, OS, Version)
-      placeholder: "z. B. Chrome 124, macOS 14.2"
+      label: Environment
+      description: Where does the bug occur? (e.g., Browser, OS, Version)
+      placeholder: 'e.g., Chrome 124, macOS 14.2'
     validations:
       required: true

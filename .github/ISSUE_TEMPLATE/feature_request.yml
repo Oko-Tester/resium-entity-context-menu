@@ -1,51 +1,51 @@
 name: ✨ Feature Request
-description: Schlage eine neue Funktion oder Verbesserung vor
-title: "[FEATURE] "
-labels: ["enhancement"]
+description: Suggest a new feature or improvement
+title: '[FEATURE] '
+labels: ['enhancement']
 assignees: []
 body:
   - type: textarea
     id: problem
     attributes:
-      label: Problemstellung
-      description: Welches Problem löst das Feature? Warum ist es wichtig?
-      placeholder: "Aktuell fehlt eine Möglichkeit ..."
+      label: Problem Statement
+      description: What problem does this feature solve? Why is it important?
+      placeholder: 'Currently, there is no way to ...'
     validations:
       required: true
 
   - type: textarea
     id: solution
     attributes:
-      label: Vorgeschlagene Lösung
-      description: Beschreibe die gewünschte Lösung / Funktion.
-      placeholder: "Das System sollte ermöglichen ..."
+      label: Proposed Solution
+      description: Describe the desired solution / feature.
+      placeholder: 'The system should allow ...'
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternativen
-      description: Welche Alternativen hast du in Betracht gezogen?
-      placeholder: "Man könnte auch ..."
+      label: Alternatives
+      description: What alternatives have you considered?
+      placeholder: 'Another approach could be ...'
     validations:
       required: false
 
   - type: textarea
     id: additional
     attributes:
-      label: Zusatzinformationen
-      description: Weitere relevante Infos, Links oder Beispiele.
-      placeholder: "Z. B. Screenshots, Referenzen, Mockups"
+      label: Additional Information
+      description: Any other relevant info, links, or examples.
+      placeholder: 'e.g., Screenshots, References, Mockups'
     validations:
       required: false
 
   - type: checkboxes
     id: acceptance
     attributes:
-      label: Akzeptanzkriterien
-      description: Definiere die Kriterien, wann das Feature als fertig gilt.
+      label: Acceptance Criteria
+      description: Define the criteria for considering the feature as complete.
       options:
-        - label: Funktion ist implementiert
-        - label: Tests sind vorhanden
-        - label: Dokumentation ist angepasst
+        - label: Feature is implemented
+        - label: Tests are provided
+        - label: Documentation is updated
