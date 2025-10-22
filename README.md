@@ -1,4 +1,4 @@
-# Entity Context Menu for React/Cesium
+# Resium Entity Context Menu
 
 A lightweight, type-safe context menu system for Resium/Cesium applications. Fully controlled via React Context with automatic Cesium event handling.
 
