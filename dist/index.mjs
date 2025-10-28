@@ -109,20 +109,23 @@ var EntityContextMenu = ({ className = "" }) => {
     };
   }, [viewer?.scene.canvas, isVisible, hideMenu]);
   const computeMenuPosition = (ctx, menuEl) => {
-    if (!ctx) return { x: 0, y: 0 };
-    let x = ctx.position?.x ?? 0;
-    let y = ctx.position?.y ?? 0;
-    if (!menuEl) {
-      return { x, y };
-    }
-    const rect = menuEl.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    if (x + rect.width > viewportWidth - 10) {
-      x = Math.max(10, x - rect.width);
-    }
-    if (y + rect.height > viewportHeight - 10) {
-      y = Math.max(10, y - rect.height);
+    if (!ctx || !viewer) return { x: 0, y: 0 };
+    let canvasX = ctx.position?.x ?? 0;
+    let canvasY = ctx.position?.y ?? 0;
+    const canvas = viewer.scene.canvas;
+    const canvasRect = canvas.getBoundingClientRect();
+    let x = canvasRect.left + canvasX;
+    let y = canvasRect.top + canvasY;
+    if (menuEl) {
+      const rect = menuEl.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      if (x + rect.width > viewportWidth - 10) {
+        x = Math.max(10, x - rect.width);
+      }
+      if (y + rect.height > viewportHeight - 10) {
+        y = Math.max(10, y - rect.height);
+      }
     }
     return { x, y };
   };
@@ -135,7 +138,7 @@ var EntityContextMenu = ({ className = "" }) => {
     const pos = computeMenuPosition(context, menuEl);
     setMenuPosition(pos);
     setPositionCalculated(true);
-  }, [isVisible, context, menuItems]);
+  }, [isVisible, context, menuItems, viewer]);
   useEffect(() => {
     if (!isVisible) return;
     const handleOutsideInteraction = (e) => {
