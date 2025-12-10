@@ -340,6 +340,7 @@ var EntityContextMenu = ({ className = "" }) => {
         },
         children: [
           item.type === "toggle" && item.checked && /* @__PURE__ */ jsx2("span", { className: "ecm-checkmark", children: "\u2713" }),
+          item.icon && /* @__PURE__ */ jsx2("span", { className: "ecm-item__icon", children: item.icon }),
           /* @__PURE__ */ jsx2("span", { className: "ecm-item__label", children: item.label }),
           item.type === "submenu" && /* @__PURE__ */ jsx2("span", { className: "ecm-item__submenu-indicator", children: "\u25B6" }),
           item.type === "submenu" && openSubmenu === item.id && item.items && /* @__PURE__ */ jsx2("div", { className: "ecm-submenu", children: (() => {
