@@ -16,6 +16,7 @@ type EntityContext = {
 type MenuItem = {
     id: string;
     label: string;
+    icon?: React.ReactNode;
     type?: 'action' | 'submenu' | 'toggle' | 'separator' | 'custom';
     visible?: (ctx: EntityContext) => boolean;
     enabled?: (ctx: EntityContext) => boolean;
