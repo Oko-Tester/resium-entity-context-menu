@@ -52,6 +52,7 @@ function App() {
     {
       id: 'info',
       label: 'Show Info',
+      icon: '📋',
       onClick: () => console.log('Entity info:', ctx),
     },
   ];
@@ -62,6 +63,7 @@ function App() {
       {
         id: 'fly',
         label: 'Fly Here',
+        icon: '✈️',
         onClick: () => {
           // ctx.worldPosition is available for Cesium entities
           if (ctx.worldPosition) {
@@ -233,6 +235,7 @@ type EntityContext = {
 type MenuItem = {
   id: string;
   label: string;
+  icon?: React.ReactNode; // Optional icon (emoji, SVG, or React component)
   type?: 'action' | 'submenu' | 'toggle' | 'separator' | 'custom';
   visible?: (ctx: EntityContext) => boolean;
   enabled?: (ctx: EntityContext) => boolean;
@@ -257,6 +260,109 @@ function useEntityContextMenu(): {
 ```
 
 ## 🔥 Advanced Features
+
+### Using Icons
+
+MenuItems support icons through the `icon` property. You can use emojis, SVG icons, or React components:
+
+#### Using Emojis
+
+```tsx
+const menuFactory = (ctx) => [
+  {
+    id: 'info',
+    label: 'Show Info',
+    icon: '📋',
+    onClick: () => console.log('Info'),
+  },
+  {
+    id: 'edit',
+    label: 'Edit',
+    icon: '✏️',
+    onClick: () => console.log('Edit'),
+  },
+  {
+    id: 'delete',
+    label: 'Delete',
+    icon: '🗑️',
+    onClick: () => console.log('Delete'),
+  },
+];
+```
+
+#### Using SVG Icons
+
+```tsx
+const menuFactory = (ctx) => [
+  {
+    id: 'zoom',
+    label: 'Zoom In',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+        <path d="M6.5 3a.5.5 0 0 1 .5.5V6h2.5a.5.5 0 0 1 0 1H7v2.5a.5.5 0 0 1-1 0V7H3.5a.5.5 0 0 1 0-1H6V3.5a.5.5 0 0 1 .5-.5z"/>
+      </svg>
+    ),
+    onClick: () => console.log('Zoom'),
+  },
+];
+```
+
+#### Using Icon Libraries (e.g., React Icons)
+
+```tsx
+import { FiInfo, FiEdit, FiTrash2, FiMapPin } from 'react-icons/fi';
+
+const menuFactory = (ctx) => [
+  {
+    id: 'info',
+    label: 'Show Info',
+    icon: <FiInfo />,
+    onClick: () => console.log('Info'),
+  },
+  {
+    id: 'edit',
+    label: 'Edit',
+    icon: <FiEdit />,
+    onClick: () => console.log('Edit'),
+  },
+  {
+    id: 'delete',
+    label: 'Delete',
+    icon: <FiTrash2 />,
+    onClick: () => console.log('Delete'),
+  },
+];
+```
+
+#### Icons in Submenus
+
+Icons work seamlessly in submenus as well:
+
+```tsx
+const menuFactory = (ctx) => [
+  {
+    id: 'actions',
+    label: 'Actions',
+    icon: '⚙️',
+    type: 'submenu',
+    items: [
+      {
+        id: 'fly',
+        label: 'Fly Here',
+        icon: '✈️',
+        onClick: () => console.log('Fly'),
+      },
+      {
+        id: 'navigate',
+        label: 'Navigate',
+        icon: '🧭',
+        onClick: () => console.log('Navigate'),
+      },
+    ],
+  },
+];
+```
 
 ### Asynchronous Menu Generation
 
@@ -533,6 +639,7 @@ function CesiumApp() {
     {
       id: 'zoom',
       label: 'Zoom to Entity',
+      icon: '🔍',
       onClick: () => console.log('Zoom to', ctx.entityId),
     },
   ];
@@ -541,16 +648,19 @@ function CesiumApp() {
     {
       id: 'info',
       label: `Info: ${ctx.entityData?.name}`,
+      icon: '📋',
       onClick: () => alert(`City: ${ctx.entityData?.name}`),
     },
     {
       id: 'actions',
       label: 'Actions',
+      icon: '⚙️',
       type: 'submenu',
       items: [
         {
           id: 'fly',
           label: 'Fly Here',
+          icon: '✈️',
           onClick: () => {
             // Access viewer from context if needed
             console.log('Flying to', ctx.worldPosition);
@@ -559,6 +669,7 @@ function CesiumApp() {
         {
           id: 'highlight',
           label: 'Highlight',
+          icon: '✨',
           onClick: () => console.log('Highlight', ctx.entityId),
         },
       ],

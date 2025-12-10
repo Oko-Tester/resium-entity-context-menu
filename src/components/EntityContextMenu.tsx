@@ -325,6 +325,8 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
           <span className="ecm-checkmark">✓</span>
         )}
 
+        {item.icon && <span className="ecm-item__icon">{item.icon}</span>}
+
         <span className="ecm-item__label">{item.label}</span>
 
         {item.type === 'submenu' && <span className="ecm-item__submenu-indicator">▶</span>}
