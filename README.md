@@ -237,6 +237,7 @@ type MenuItem = {
   label: string;
   icon?: React.ReactNode; // Optional icon (emoji, SVG, or React component)
   type?: 'action' | 'submenu' | 'toggle' | 'separator' | 'custom';
+  variant?: 'default' | 'danger'; // Visual variant for dangerous actions
   visible?: (ctx: EntityContext) => boolean;
   enabled?: (ctx: EntityContext) => boolean;
   onClick?: (ctx: EntityContext) => void | Promise<void>;
@@ -489,6 +490,73 @@ const menuWithSeparators = [
 ];
 ```
 
+### Danger Variant
+
+Use the `danger` variant to visually indicate destructive or dangerous actions. Items with the danger variant are displayed in red and have a red-themed hover state:
+
+```tsx
+const menuWithDangerActions = [
+  {
+    id: 'info',
+    label: 'Show Info',
+    icon: '📋',
+    onClick: (ctx) => showInfo(ctx.entityId),
+  },
+  {
+    id: 'edit',
+    label: 'Edit Entity',
+    icon: '✏️',
+    onClick: (ctx) => editEntity(ctx.entityId),
+  },
+  { id: 'sep1', type: 'separator' },
+  {
+    id: 'delete',
+    label: 'Delete Entity',
+    icon: '🗑️',
+    variant: 'danger',
+    onClick: async (ctx) => {
+      if (confirm(`Delete ${ctx.entityData?.name}?`)) {
+        await deleteEntity(ctx.entityId);
+      }
+    },
+  },
+  {
+    id: 'reset',
+    label: 'Reset to Default',
+    variant: 'danger',
+    onClick: (ctx) => resetEntity(ctx.entityId),
+  },
+];
+```
+
+Danger items work seamlessly in submenus as well:
+
+```tsx
+const menuWithDangerSubmenu = [
+  {
+    id: 'actions',
+    label: 'Actions',
+    icon: '⚙️',
+    type: 'submenu',
+    items: [
+      {
+        id: 'duplicate',
+        label: 'Duplicate',
+        onClick: () => console.log('Duplicate'),
+      },
+      { id: 'sep', type: 'separator' },
+      {
+        id: 'delete',
+        label: 'Delete',
+        icon: '🗑️',
+        variant: 'danger',
+        onClick: () => console.log('Delete'),
+      },
+    ],
+  },
+];
+```
+
 ## ⌨️ Keyboard Navigation
 
 The context menu supports full keyboard navigation:
@@ -553,6 +621,8 @@ You can customize the appearance using CSS:
 - `.ecm-item--focused` - Focused item (keyboard navigation)
 - `.ecm-item--toggle` - Toggle-type item
 - `.ecm-item--submenu` - Item with submenu
+- `.ecm-item--danger` - Danger variant item (red styling)
+- `.ecm-item__icon` - Item icon container
 - `.ecm-item__label` - Item label text
 - `.ecm-item__submenu-indicator` - Submenu arrow
 - `.ecm-separator` - Separator line

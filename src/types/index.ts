@@ -15,6 +15,7 @@ export type MenuItem = {
   label: string;
   icon?: React.ReactNode;
   type?: 'action' | 'submenu' | 'toggle' | 'separator' | 'custom';
+  variant?: 'default' | 'danger';
   visible?: (ctx: EntityContext) => boolean;
   enabled?: (ctx: EntityContext) => boolean;
   onClick?: (ctx: EntityContext) => void | Promise<void>;

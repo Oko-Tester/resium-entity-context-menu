@@ -308,6 +308,7 @@ export const EntityContextMenu: React.FC<{ className?: string }> = ({ className 
           isFocused ? 'ecm-item--focused' : '',
           item.type === 'toggle' ? 'ecm-item--toggle' : '',
           item.type === 'submenu' ? 'ecm-item--submenu' : '',
+          item.variant === 'danger' ? 'ecm-item--danger' : '',
         ]
           .join(' ')
           .trim()}

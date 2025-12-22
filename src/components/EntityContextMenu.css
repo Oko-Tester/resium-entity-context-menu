@@ -57,6 +57,18 @@
   background: #f3f8ff;
 }
 
+.ecm-item--danger {
+  color: #dc2626; /* red-600 */
+}
+
+.ecm-item--danger.ecm-item--focused {
+  background: #fee2e2; /* red-100 */
+}
+
+.ecm-item--danger.ecm-item--enabled:hover {
+  background: #fef2f2; /* red-50 */
+}
+
 .ecm-item__icon {
   display: inline-flex;
   align-items: center;
